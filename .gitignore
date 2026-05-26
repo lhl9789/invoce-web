@@ -43,5 +43,8 @@ next-env.d.ts
 # claude code local settings
 .claude/settings.local.json
 
+# claude code hook test files
+hook-test.txt
+
 # playwright mcp logs
 .playwright-mcp/
