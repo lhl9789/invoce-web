@@ -10,7 +10,7 @@ export interface Order {
   date: string
 }
 
-const statusColor: Record<string, string> = {
+const statusColor: Record<Order["status"], string> = {
   완료: "text-emerald-600",
   처리중: "text-blue-600",
   취소: "text-red-500",
@@ -23,7 +23,7 @@ export const columns: ColumnDef<Order>[] = [
     accessorKey: "status",
     header: "상태",
     cell: ({ row }) => {
-      const status = row.getValue("status") as string
+      const status = row.getValue<Order["status"]>("status")
       return <span className={statusColor[status]}>{status}</span>
     },
   },

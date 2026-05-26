@@ -67,7 +67,7 @@ export function DashboardSidebar() {
 
       <SidebarFooter className="border-t p-4">
         <p className="text-xs text-muted-foreground truncate group-data-[collapsible=icon]:hidden">
-          v0.1.0
+          v{siteConfig.version}
         </p>
       </SidebarFooter>
     </Sidebar>
