@@ -26,7 +26,11 @@ interface UserMenuProps {
 
 export function UserMenu({ user }: UserMenuProps) {
   const router = useRouter()
-  const initials = user?.name ? user.name.slice(0, 2).toUpperCase() : "U"
+  const initials = user?.name
+    ? /[가-힣]/.test(user.name)
+      ? user.name.slice(0, 2)
+      : user.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()
+    : "U"
 
   function handleLogout() {
     // TODO: 실제 세션 클리어 로직

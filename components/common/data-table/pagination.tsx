@@ -57,7 +57,9 @@ export function DataTablePagination<TData>({ table }: DataTablePaginationProps<T
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <span className="text-sm px-2">
-            {table.getState().pagination.pageIndex + 1} / {table.getPageCount()}
+            {table.getPageCount() === 0
+              ? "0 / 0"
+              : `${table.getState().pagination.pageIndex + 1} / ${table.getPageCount()}`}
           </span>
           <Button
             variant="outline"
