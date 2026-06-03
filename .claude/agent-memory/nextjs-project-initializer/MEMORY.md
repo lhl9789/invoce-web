@@ -1,0 +1,1 @@
+- [Invoce 프로젝트 구조](project-invoce-structure.md) — 라우트 구조, 기술 스택, _legacy 폴더 주의사항, ROUTES 변경 이력
