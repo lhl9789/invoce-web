@@ -1,0 +1,212 @@
+{
+  "tasks": [
+    {
+      "id": "9aaf470a-63e4-426e-bd5a-49a2ad399730",
+      "name": "SETUP-001: 환경 변수 스키마 정의 및 .env 파일 보강",
+      "description": "ROADMAP Phase 0의 환경 변수 요구사항(DATABASE_URL, JWT_SECRET, ENCRYPTION_KEY, NEXT_PUBLIC_APP_URL)을 .env.example과 .env.local에 반영한다. 기존 .env.example에는 JWT_SECRET, ENCRYPTION_KEY, NEXT_PUBLIC_APP_URL이 이미 있으므로 DATABASE_URL(postgresql://USER:PASSWORD@localhost:5432/invoce)만 추가하고 섹션 주석을 정비한다. .env.local에는 DATABASE_URL을 로컬 PostgreSQL 기본값으로 추가하고, 기존 NEXTAUTH_SECRET은 유지하되 JWT_SECRET이 없으면 추가한다(jose 기반 서명에 필요).",
+      "notes": ".env.local은 .gitignore 대상이므로 실제 값은 로컬 개발용 placeholder로 작성. 커밋되는 것은 .env.example뿐이다.",
+      "status": "completed",
+      "dependencies": [],
+      "createdAt": "2026-06-14T12:49:13.427Z",
+      "updatedAt": "2026-06-14T12:52:31.135Z",
+      "relatedFiles": [
+        {
+          "path": ".env.example",
+          "type": "TO_MODIFY",
+          "description": "공개 환경변수 예시 파일에 DATABASE_URL 추가"
+        },
+        {
+          "path": ".env.local",
+          "type": "TO_MODIFY",
+          "description": "로컬 개발 환경변수에 DATABASE_URL/JWT_SECRET 추가 (gitignore 대상)"
+        }
+      ],
+      "implementationGuide": "1. .env.example 읽고 '# 데이터베이스' 섹션을 추가해 DATABASE_URL 예시값(postgresql://postgres:postgres@localhost:5432/invoce) 추가\n2. ENCRYPTION_KEY 주석에 '32바이트(64자 hex)' 형식 명시\n3. .env.local에 동일하게 DATABASE_URL 추가(로컬 개발용 실제 접속 가능한 placeholder), JWT_SECRET 누락 시 추가\n4. 두 파일 모두 NEXT_PUBLIC_APP_URL 값 유지(http://localhost:3000)",
+      "verificationCriteria": ".env.example과 .env.local 모두 DATABASE_URL, JWT_SECRET, ENCRYPTION_KEY, NEXT_PUBLIC_APP_URL 4개 항목을 포함하고, ENCRYPTION_KEY 주석에 32바이트(64 hex) 명시가 있다.",
+      "analysisResult": "Invoce 프로젝트 docs/ROADMAP.md Phase 0(프로젝트 셋업 및 인프라, Week 1)을 구현한다. 목표: 환경변수 스키마 확정, PostgreSQL+Prisma 연결 및 User/NotionIntegration/QuoteLink 모델 생성, 공통 API 응답/에러 처리 유틸 정의, AES-256-GCM 암호화 유틸 구현, 인증 기반 라우팅 보호, Zod 검증 스키마 점검. src/ App Router 레이아웃을 유지하며 shrimp-rules.md의 정본/중복 파일 매핑, _*_legacy 미참조, ROADMAP API 응답 표준({success,data}/{success,error:{code,message}})을 모든 작업의 공통 제약으로 따른다. 핵심 결정 두 가지: (1) Next.js 16.2.6은 middleware가 deprecated되어 proxy.ts(루트, export function proxy())로 대체되었으므로 SETUP-005는 신규 src/middleware.ts 대신 기존 루트 proxy.ts 스텁을 정본 라우트(/login,/signup,/quotes,/notion-setup,/settings)와 JWT 쿠키 기준으로 갱신한다. (2) src/types/index.ts의 ApiResponse<T>가 ROADMAP 표준과 다른 Spring Boot 스타일({data,message,status,success})로 정의되어 있어 판별 유니온({success:true,data}|{success:false,error:{code,message}})으로 교정하고, src/lib/api/client.ts 및 src/hooks/useAuth.ts·useQuotes.ts(총 4곳)의 response.data 접근부에 success 가드를 추가한다. SETUP-006(Zod 스키마)은 기존 src/lib/validations/auth.ts·notion.ts가 이미 ROADMAP 요구사항을 충족하므로 검토만 수행하고 변경 없음으로 마무리한다. 의존관계: SETUP-002→SETUP-001, SETUP-004→SETUP-001, SETUP-005→SETUP-003.",
+      "summary": ".env.example에 '데이터베이스' 섹션을 추가해 DATABASE_URL(postgresql://postgres:postgres@localhost:5432/invoce)을 추가했고, ENCRYPTION_KEY 주석에 'AES-256-GCM 암호화 키 — 32바이트(64자 hex) 문자열'을 명시했다. .env.local에도 동일하게 DATABASE_URL을 추가하고, 누락되어 있던 JWT_SECRET(jose 기반 서명용)을 추가했으며, 기존 NEXTAUTH_SECRET은 유지했다. ENCRYPTION_KEY 주석도 32바이트(64자 hex) 형식을 명시하도록 갱신했다. NEXT_PUBLIC_APP_URL은 두 파일 모두 http://localhost:3000으로 유지했다.",
+      "completedAt": "2026-06-14T12:52:31.133Z"
+    },
+    {
+      "id": "628d6661-8e9e-4c7a-a0e9-b71b693d0829",
+      "name": "SETUP-002: PostgreSQL 연결 및 Prisma ORM 설정",
+      "description": "Prisma를 도입해 User, NotionIntegration, QuoteLink 모델을 ROADMAP에 정의된 스키마 그대로 작성하고 초기 마이그레이션을 실행한다. src/lib/db.ts에 개발 핫리로드에 안전한 PrismaClient 싱글톤을 작성한다.",
+      "notes": "로컬에 PostgreSQL이 실행 중이지 않으면 migrate dev가 실패할 수 있다 — 이 경우 schema.prisma 작성과 prisma generate까지 완료하고, migrate dev 실행 결과를 작업 노트에 남긴다(빌드/타입체크는 prisma generate만으로 통과 가능).",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "9aaf470a-63e4-426e-bd5a-49a2ad399730"
+        }
+      ],
+      "createdAt": "2026-06-14T12:49:13.427Z",
+      "updatedAt": "2026-06-14T12:49:13.427Z",
+      "relatedFiles": [
+        {
+          "path": "prisma/schema.prisma",
+          "type": "CREATE",
+          "description": "User, NotionIntegration, QuoteLink Prisma 모델 정의"
+        },
+        {
+          "path": "src/lib/db.ts",
+          "type": "CREATE",
+          "description": "PrismaClient 싱글톤 (개발 핫리로드 대응)"
+        },
+        {
+          "path": "package.json",
+          "type": "TO_MODIFY",
+          "description": "prisma, @prisma/client 의존성 추가"
+        },
+        {
+          "path": "docs/ROADMAP.md",
+          "type": "REFERENCE",
+          "description": "데이터베이스 스키마 상세 섹션 (라인 545-597)"
+        }
+      ],
+      "implementationGuide": "1. package.json에 devDependencies로 'prisma', dependencies로 '@prisma/client' 추가\n2. npx prisma init 없이 수동으로 prisma/schema.prisma 작성: generator client(provider prisma-client-js), datasource db(provider postgresql, url env(\"DATABASE_URL\")), model User/NotionIntegration/QuoteLink는 ROADMAP의 '데이터베이스 스키마 상세' 섹션 코드 블록을 그대로 사용\n3. src/lib/db.ts: globalThis 캐시 패턴으로 PrismaClient 싱글톤 export (예: const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }; export const prisma = globalForPrisma.prisma ?? new PrismaClient(); if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma)\n4. npx prisma generate 실행하여 클라이언트 생성, DATABASE_URL이 유효한 로컬 PostgreSQL을 가리키면 npx prisma migrate dev --name init 실행 (DB 미가용 시 schema/클라이언트 생성까지만 진행하고 마이그레이션은 보류 가능, notes에 기록)",
+      "verificationCriteria": "prisma/schema.prisma에 User/NotionIntegration/QuoteLink 모델이 ROADMAP과 동일하게 존재하고, npx prisma generate가 에러 없이 성공하며, src/lib/db.ts가 PrismaClient를 싱글톤으로 export한다.",
+      "analysisResult": "Invoce 프로젝트 docs/ROADMAP.md Phase 0(프로젝트 셋업 및 인프라, Week 1)을 구현한다. 목표: 환경변수 스키마 확정, PostgreSQL+Prisma 연결 및 User/NotionIntegration/QuoteLink 모델 생성, 공통 API 응답/에러 처리 유틸 정의, AES-256-GCM 암호화 유틸 구현, 인증 기반 라우팅 보호, Zod 검증 스키마 점검. src/ App Router 레이아웃을 유지하며 shrimp-rules.md의 정본/중복 파일 매핑, _*_legacy 미참조, ROADMAP API 응답 표준({success,data}/{success,error:{code,message}})을 모든 작업의 공통 제약으로 따른다. 핵심 결정 두 가지: (1) Next.js 16.2.6은 middleware가 deprecated되어 proxy.ts(루트, export function proxy())로 대체되었으므로 SETUP-005는 신규 src/middleware.ts 대신 기존 루트 proxy.ts 스텁을 정본 라우트(/login,/signup,/quotes,/notion-setup,/settings)와 JWT 쿠키 기준으로 갱신한다. (2) src/types/index.ts의 ApiResponse<T>가 ROADMAP 표준과 다른 Spring Boot 스타일({data,message,status,success})로 정의되어 있어 판별 유니온({success:true,data}|{success:false,error:{code,message}})으로 교정하고, src/lib/api/client.ts 및 src/hooks/useAuth.ts·useQuotes.ts(총 4곳)의 response.data 접근부에 success 가드를 추가한다. SETUP-006(Zod 스키마)은 기존 src/lib/validations/auth.ts·notion.ts가 이미 ROADMAP 요구사항을 충족하므로 검토만 수행하고 변경 없음으로 마무리한다. 의존관계: SETUP-002→SETUP-001, SETUP-004→SETUP-001, SETUP-005→SETUP-003."
+    },
+    {
+      "id": "53048c8a-5c35-430c-8d67-7f8c84983d24",
+      "name": "SETUP-003: 공통 API 응답 타입 및 에러 처리 유틸 정의",
+      "description": "ROADMAP의 API 응답 표준({success:true,data}/{success:false,error:{code,message}})에 맞춰 src/types/index.ts의 ApiResponse<T>를 판별 유니온으로 교정하고, src/lib/api-response.ts(success/error 헬퍼), src/lib/errors.ts(AppError 및 도메인별 에러 클래스)를 신설한다. 기존 Spring Boot 스타일 ApiResponse를 사용하던 src/lib/api/client.ts와 src/hooks/useAuth.ts, src/hooks/useQuotes.ts의 호출부를 새 형식에 맞게 수정한다.",
+      "notes": "useLogout, useDeleteQuote는 반환값을 사용하지 않으므로 (apiClient.post/delete의 반환 타입이 ApiResponse여도) 그대로 두되, 응답이 실패(success:false)인 경우 client.ts의 ApiError throw로 이미 처리되므로 추가 가드 불필요.",
+      "status": "pending",
+      "dependencies": [],
+      "createdAt": "2026-06-14T12:49:13.427Z",
+      "updatedAt": "2026-06-14T12:49:13.427Z",
+      "relatedFiles": [
+        {
+          "path": "src/types/index.ts",
+          "type": "TO_MODIFY",
+          "description": "ApiResponse<T>를 판별 유니온으로 교정",
+          "lineStart": 1,
+          "lineEnd": 8
+        },
+        {
+          "path": "src/lib/api-response.ts",
+          "type": "CREATE",
+          "description": "Route Handler용 success()/error() 응답 헬퍼"
+        },
+        {
+          "path": "src/lib/errors.ts",
+          "type": "CREATE",
+          "description": "AppError 및 AuthError/NotionError/NotFoundError/ValidationError"
+        },
+        {
+          "path": "src/lib/api/client.ts",
+          "type": "TO_MODIFY",
+          "description": "ApiError 생성 시 data.error.message 참조",
+          "lineStart": 48,
+          "lineEnd": 65
+        },
+        {
+          "path": "src/hooks/useAuth.ts",
+          "type": "TO_MODIFY",
+          "description": "response.data 접근부에 success 가드 추가 (2곳)"
+        },
+        {
+          "path": "src/hooks/useQuotes.ts",
+          "type": "TO_MODIFY",
+          "description": "response.data 접근부에 success 가드 추가 (2곳)"
+        }
+      ],
+      "implementationGuide": "1. src/types/index.ts: 기존 ApiResponse<T> 정의와 '(Spring Boot 레이어드 아키텍처 응답 형식 기준)' 주석 제거. 다음으로 교체:\n  export interface ApiSuccess<T> { success: true; data: T }\n  export interface ApiFailure { success: false; error: { code: string; message: string } }\n  export type ApiResponse<T = unknown> = ApiSuccess<T> | ApiFailure\n  PaginatedResponse, NavItem 등 다른 타입은 유지\n2. src/lib/api-response.ts 신설:\n  export function success<T>(data: T, status = 200) { return NextResponse.json({ success: true, data }, { status }) }\n  export function error(code: string, message: string, status = 400) { return NextResponse.json({ success: false, error: { code, message } }, { status }) }\n3. src/lib/errors.ts 신설: AppError(message,code,status) 베이스 클래스 + AuthError(401,'UNAUTHORIZED'), NotionError(422 또는 500,'NOTION_CONNECTION_FAILED'), NotFoundError(404,'NOT_FOUND'), ValidationError(400,'VALIDATION_ERROR') — 각각 AppError 상속, code/status/message 보유\n4. src/lib/api/client.ts: request<T>의 반환 타입은 ApiResponse<T> 유지. !response.ok 또는 data.success === false 분기에서 throw new ApiError(response.status, data.success === false ? data.error.message : '요청에 실패했습니다.', data)\n5. src/hooks/useAuth.ts, src/hooks/useQuotes.ts: response.data 직접 반환하던 4곳(useLogin, useSignup, useQuotes, useCreateQuote) 모두 'if (!response.success) throw new Error(response.error.message); return response.data' 형태의 가드 추가",
+      "verificationCriteria": "ApiResponse<T>가 success 판별 유니온으로 정의되고, 'Spring Boot' 주석이 제거되며, src/lib/api-response.ts와 src/lib/errors.ts가 생성된다. useAuth.ts/useQuotes.ts/client.ts가 새 타입과 타입 에러 없이 컴파일된다(npx tsc --noEmit).",
+      "analysisResult": "Invoce 프로젝트 docs/ROADMAP.md Phase 0(프로젝트 셋업 및 인프라, Week 1)을 구현한다. 목표: 환경변수 스키마 확정, PostgreSQL+Prisma 연결 및 User/NotionIntegration/QuoteLink 모델 생성, 공통 API 응답/에러 처리 유틸 정의, AES-256-GCM 암호화 유틸 구현, 인증 기반 라우팅 보호, Zod 검증 스키마 점검. src/ App Router 레이아웃을 유지하며 shrimp-rules.md의 정본/중복 파일 매핑, _*_legacy 미참조, ROADMAP API 응답 표준({success,data}/{success,error:{code,message}})을 모든 작업의 공통 제약으로 따른다. 핵심 결정 두 가지: (1) Next.js 16.2.6은 middleware가 deprecated되어 proxy.ts(루트, export function proxy())로 대체되었으므로 SETUP-005는 신규 src/middleware.ts 대신 기존 루트 proxy.ts 스텁을 정본 라우트(/login,/signup,/quotes,/notion-setup,/settings)와 JWT 쿠키 기준으로 갱신한다. (2) src/types/index.ts의 ApiResponse<T>가 ROADMAP 표준과 다른 Spring Boot 스타일({data,message,status,success})로 정의되어 있어 판별 유니온({success:true,data}|{success:false,error:{code,message}})으로 교정하고, src/lib/api/client.ts 및 src/hooks/useAuth.ts·useQuotes.ts(총 4곳)의 response.data 접근부에 success 가드를 추가한다. SETUP-006(Zod 스키마)은 기존 src/lib/validations/auth.ts·notion.ts가 이미 ROADMAP 요구사항을 충족하므로 검토만 수행하고 변경 없음으로 마무리한다. 의존관계: SETUP-002→SETUP-001, SETUP-004→SETUP-001, SETUP-005→SETUP-003."
+    },
+    {
+      "id": "422e4c33-6e10-4d18-bba0-8123d338ddef",
+      "name": "SETUP-004: AES-256-GCM 암호화 유틸리티 구현",
+      "description": "Notion Integration Token 암호화에 사용할 src/lib/crypto.ts를 Node.js crypto 모듈 기반으로 구현한다. ENCRYPTION_KEY 환경변수(32바이트 hex)를 사용해 encrypt/decrypt 함수를 제공한다.",
+      "notes": "이 프로젝트에는 jest/vitest 등 테스트 러너가 아직 설치되어 있지 않아(package.json 확인) 별도 단위 테스트 파일은 작성하지 않는다 — 테스트 러너 도입은 Phase 0 범위 밖으로 별도 결정이 필요함을 작업 노트로 남긴다. encrypt(decrypt(encrypt(x))) === x 라운드트립은 구현 후 node -e 스크립트로 1회 수동 검증한다.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "9aaf470a-63e4-426e-bd5a-49a2ad399730"
+        }
+      ],
+      "createdAt": "2026-06-14T12:49:13.427Z",
+      "updatedAt": "2026-06-14T12:49:13.427Z",
+      "relatedFiles": [
+        {
+          "path": "src/lib/crypto.ts",
+          "type": "CREATE",
+          "description": "AES-256-GCM encrypt/decrypt 유틸 (ENCRYPTION_KEY 기반)"
+        },
+        {
+          "path": ".env.local",
+          "type": "DEPENDENCY",
+          "description": "ENCRYPTION_KEY (32바이트 hex) 값 참조"
+        }
+      ],
+      "implementationGuide": "1. src/lib/crypto.ts 작성:\n   - const ALGORITHM = 'aes-256-gcm'\n   - function getKey(): Buffer — process.env.ENCRYPTION_KEY를 Buffer.from(key, 'hex')로 변환, 길이가 32바이트(64 hex 문자)가 아니면 Error throw\n   - export function encrypt(plainText: string): string — crypto.randomBytes(16)으로 iv 생성, createCipheriv(ALGORITHM, key, iv)로 암호화, authTag 획득, `${iv.toString('hex')}:${authTag.toString('hex')}:${encrypted.toString('hex')}` 형식 반환\n   - export function decrypt(payload: string): string — payload를 ':' 기준 split하여 iv/authTag/encrypted 복원, createDecipheriv로 복호화 후 평문 반환, 형식 오류 시 명시적 Error throw\n2. 함수 상단에 비즈니스 로직 한국어 주석(예: 'Notion Integration Token을 AES-256-GCM으로 암호화한다') 추가",
+      "verificationCriteria": "src/lib/crypto.ts가 encrypt/decrypt를 export하고, ENCRYPTION_KEY가 32바이트 hex가 아닐 경우 명시적 에러를 throw한다. 임의 문자열에 대해 encrypt 후 decrypt하면 원문과 동일한 결과가 나옴을 수동 스크립트로 확인한다.",
+      "analysisResult": "Invoce 프로젝트 docs/ROADMAP.md Phase 0(프로젝트 셋업 및 인프라, Week 1)을 구현한다. 목표: 환경변수 스키마 확정, PostgreSQL+Prisma 연결 및 User/NotionIntegration/QuoteLink 모델 생성, 공통 API 응답/에러 처리 유틸 정의, AES-256-GCM 암호화 유틸 구현, 인증 기반 라우팅 보호, Zod 검증 스키마 점검. src/ App Router 레이아웃을 유지하며 shrimp-rules.md의 정본/중복 파일 매핑, _*_legacy 미참조, ROADMAP API 응답 표준({success,data}/{success,error:{code,message}})을 모든 작업의 공통 제약으로 따른다. 핵심 결정 두 가지: (1) Next.js 16.2.6은 middleware가 deprecated되어 proxy.ts(루트, export function proxy())로 대체되었으므로 SETUP-005는 신규 src/middleware.ts 대신 기존 루트 proxy.ts 스텁을 정본 라우트(/login,/signup,/quotes,/notion-setup,/settings)와 JWT 쿠키 기준으로 갱신한다. (2) src/types/index.ts의 ApiResponse<T>가 ROADMAP 표준과 다른 Spring Boot 스타일({data,message,status,success})로 정의되어 있어 판별 유니온({success:true,data}|{success:false,error:{code,message}})으로 교정하고, src/lib/api/client.ts 및 src/hooks/useAuth.ts·useQuotes.ts(총 4곳)의 response.data 접근부에 success 가드를 추가한다. SETUP-006(Zod 스키마)은 기존 src/lib/validations/auth.ts·notion.ts가 이미 ROADMAP 요구사항을 충족하므로 검토만 수행하고 변경 없음으로 마무리한다. 의존관계: SETUP-002→SETUP-001, SETUP-004→SETUP-001, SETUP-005→SETUP-003."
+    },
+    {
+      "id": "51fc1939-44c8-49de-ba78-01119109fbce",
+      "name": "SETUP-005: 인증 기반 라우팅 보호 (proxy.ts 갱신)",
+      "description": "ROADMAP은 'src/middleware.ts'를 명시하지만, 이 저장소의 Next.js 16.2.6에서는 middleware 컨벤션이 deprecated되어 proxy.ts(루트, export function proxy())로 대체되었다. 루트에 이미 존재하는 구버전 proxy.ts 스텁(/dashboard, /register, 'session' 쿠키 기준)을 현재 정본 라우트(/login, /signup, /quotes, /notion-setup, /settings)와 JWT 쿠키 기준으로 갱신한다.",
+      "notes": "JWT 서명 검증(verifyJwt)은 src/lib/auth.ts(AUTH-004, Phase 1)가 아직 TODO 스텁이므로 이 작업에서는 쿠키 존재 여부만으로 1차 가드를 구현한다. 신규 src/middleware.ts는 생성하지 않는다 — Next.js 16에서 middleware.ts를 추가하면 proxy.ts와 충돌/무시될 수 있다.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "53048c8a-5c35-430c-8d67-7f8c84983d24"
+        }
+      ],
+      "createdAt": "2026-06-14T12:49:13.427Z",
+      "updatedAt": "2026-06-14T12:49:13.427Z",
+      "relatedFiles": [
+        {
+          "path": "proxy.ts",
+          "type": "TO_MODIFY",
+          "description": "보호 경로/인증 경로/쿠키명을 현재 정본 라우트 기준으로 갱신"
+        },
+        {
+          "path": "src/constants/routes.ts",
+          "type": "REFERENCE",
+          "description": "ROUTES 상수 — /login, /signup, 보호 경로 확인용"
+        },
+        {
+          "path": "shrimp-rules.md",
+          "type": "REFERENCE",
+          "description": "정본 라우트(/q/[slug], /quotes) 및 ROUTES 불일치 안내"
+        },
+        {
+          "path": "node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/proxy.md",
+          "type": "REFERENCE",
+          "description": "Next.js 16 proxy 컨벤션 문서"
+        }
+      ],
+      "implementationGuide": "1. 루트 proxy.ts의 PROTECTED_PATHS를 ['/quotes', '/notion-setup', '/settings']로 교체\n2. AUTH_PATHS를 ['/login', '/signup']로 교체 (기존 '/register' 제거)\n3. 쿠키명을 'session'에서 'token'(또는 AUTH-004에서 정의될 JWT 쿠키명 — 현재는 placeholder로 'token' 사용, 상단에 'AUTH-004에서 실제 verifyJwt 연동 필요' TODO 한국어 주석 추가)으로 변경\n4. 리다이렉트 대상: 보호 경로 미인증 시 '/login', 인증 경로(로그인 상태)는 '/quotes'로 변경 (기존 '/dashboard' 제거)\n5. config.matcher를 ['/quotes/:path*', '/notion-setup/:path*', '/settings/:path*', '/login', '/signup']로 갱신 — '/q/[slug]'와 '/api/**'는 공개 접근이므로 matcher에서 제외\n6. export function proxy(request: NextRequest) 함수명/시그니처는 그대로 유지 (이미 Next.js 16 컨벤션에 맞음)",
+      "verificationCriteria": "proxy.ts의 PROTECTED_PATHS가 /quotes,/notion-setup,/settings를, AUTH_PATHS가 /login,/signup을 포함하고, matcher가 이에 맞게 갱신되며, /dashboard·/register·'session' 등 구버전 참조가 남아있지 않다.",
+      "analysisResult": "Invoce 프로젝트 docs/ROADMAP.md Phase 0(프로젝트 셋업 및 인프라, Week 1)을 구현한다. 목표: 환경변수 스키마 확정, PostgreSQL+Prisma 연결 및 User/NotionIntegration/QuoteLink 모델 생성, 공통 API 응답/에러 처리 유틸 정의, AES-256-GCM 암호화 유틸 구현, 인증 기반 라우팅 보호, Zod 검증 스키마 점검. src/ App Router 레이아웃을 유지하며 shrimp-rules.md의 정본/중복 파일 매핑, _*_legacy 미참조, ROADMAP API 응답 표준({success,data}/{success,error:{code,message}})을 모든 작업의 공통 제약으로 따른다. 핵심 결정 두 가지: (1) Next.js 16.2.6은 middleware가 deprecated되어 proxy.ts(루트, export function proxy())로 대체되었으므로 SETUP-005는 신규 src/middleware.ts 대신 기존 루트 proxy.ts 스텁을 정본 라우트(/login,/signup,/quotes,/notion-setup,/settings)와 JWT 쿠키 기준으로 갱신한다. (2) src/types/index.ts의 ApiResponse<T>가 ROADMAP 표준과 다른 Spring Boot 스타일({data,message,status,success})로 정의되어 있어 판별 유니온({success:true,data}|{success:false,error:{code,message}})으로 교정하고, src/lib/api/client.ts 및 src/hooks/useAuth.ts·useQuotes.ts(총 4곳)의 response.data 접근부에 success 가드를 추가한다. SETUP-006(Zod 스키마)은 기존 src/lib/validations/auth.ts·notion.ts가 이미 ROADMAP 요구사항을 충족하므로 검토만 수행하고 변경 없음으로 마무리한다. 의존관계: SETUP-002→SETUP-001, SETUP-004→SETUP-001, SETUP-005→SETUP-003."
+    },
+    {
+      "id": "03c779ec-bbde-400d-99a0-d94b4e518c7c",
+      "name": "SETUP-006: Zod 검증 스키마 점검 (변경 필요성 확인)",
+      "description": "ROADMAP SETUP-006이 요구하는 회원가입/로그인/Notion 연동 폼의 Zod 스키마(이메일 형식, 비밀번호 최소 8자, Notion Token 'secret_' 접두사, Database ID UUID 형식)가 src/lib/validations/auth.ts와 src/lib/validations/notion.ts에 이미 구현되어 있는지 확인하고, 충족 여부를 검토한다.",
+      "notes": "이 작업은 SETUP-001~005와 독립적이며, 코드 변경이 없을 가능성이 높다 — 점검 결과를 작업 기록에 남기는 것이 핵심이다.",
+      "status": "pending",
+      "dependencies": [],
+      "createdAt": "2026-06-14T12:49:13.427Z",
+      "updatedAt": "2026-06-14T12:49:13.427Z",
+      "relatedFiles": [
+        {
+          "path": "src/lib/validations/auth.ts",
+          "type": "REFERENCE",
+          "description": "loginSchema, signupSchema 정의 확인"
+        },
+        {
+          "path": "src/lib/validations/notion.ts",
+          "type": "REFERENCE",
+          "description": "notionSetupSchema 정의 확인"
+        }
+      ],
+      "implementationGuide": "1. src/lib/validations/auth.ts를 읽고 loginSchema(email, password min 8)와 signupSchema(email, password 8자+대문자+숫자, confirmPassword 일치 검증)가 ROADMAP 요구사항(이메일 형식, 비밀번호 8자 이상)을 충족하는지 확인\n2. src/lib/validations/notion.ts를 읽고 notionSetupSchema(integrationToken 'secret_' 접두사, databaseId UUID 정규식)가 요구사항을 충족하는지 확인\n3. 두 파일 모두 LoginSchema/SignupSchema/NotionSetupSchema 타입을 export하는지 확인\n4. 요구사항을 모두 충족하면 코드 변경 없이 '검토 완료, 변경 불필요'로 결론. 누락된 export나 검증 규칙이 있으면 최소한의 보강만 수행",
+      "verificationCriteria": "두 검증 파일이 ROADMAP SETUP-006 요구사항(이메일 형식, 비밀번호 8자 이상, secret_ 접두사, UUID 형식 DB ID)을 모두 충족함을 확인하고, 필요한 경우에만 최소 보강 후 타입 export가 정상임을 확인한다.",
+      "analysisResult": "Invoce 프로젝트 docs/ROADMAP.md Phase 0(프로젝트 셋업 및 인프라, Week 1)을 구현한다. 목표: 환경변수 스키마 확정, PostgreSQL+Prisma 연결 및 User/NotionIntegration/QuoteLink 모델 생성, 공통 API 응답/에러 처리 유틸 정의, AES-256-GCM 암호화 유틸 구현, 인증 기반 라우팅 보호, Zod 검증 스키마 점검. src/ App Router 레이아웃을 유지하며 shrimp-rules.md의 정본/중복 파일 매핑, _*_legacy 미참조, ROADMAP API 응답 표준({success,data}/{success,error:{code,message}})을 모든 작업의 공통 제약으로 따른다. 핵심 결정 두 가지: (1) Next.js 16.2.6은 middleware가 deprecated되어 proxy.ts(루트, export function proxy())로 대체되었으므로 SETUP-005는 신규 src/middleware.ts 대신 기존 루트 proxy.ts 스텁을 정본 라우트(/login,/signup,/quotes,/notion-setup,/settings)와 JWT 쿠키 기준으로 갱신한다. (2) src/types/index.ts의 ApiResponse<T>가 ROADMAP 표준과 다른 Spring Boot 스타일({data,message,status,success})로 정의되어 있어 판별 유니온({success:true,data}|{success:false,error:{code,message}})으로 교정하고, src/lib/api/client.ts 및 src/hooks/useAuth.ts·useQuotes.ts(총 4곳)의 response.data 접근부에 success 가드를 추가한다. SETUP-006(Zod 스키마)은 기존 src/lib/validations/auth.ts·notion.ts가 이미 ROADMAP 요구사항을 충족하므로 검토만 수행하고 변경 없음으로 마무리한다. 의존관계: SETUP-002→SETUP-001, SETUP-004→SETUP-001, SETUP-005→SETUP-003."
+    }
+  ]
+}
