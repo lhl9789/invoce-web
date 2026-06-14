@@ -52,3 +52,6 @@ hook-test.txt
 
 # playwright mcp logs
 .playwright-mcp/
+
+# shrimp-task-manager local data
+/shrimp_data/
