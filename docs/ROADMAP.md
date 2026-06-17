@@ -247,18 +247,20 @@ src/
 
 #### 3-1. 통합 검증
 
-- [ ] **DEPLOY-001** E2E 시나리오 수동 테스트
+- [x] **DEPLOY-001** E2E 시나리오 수동 테스트
   - 예상 공수: 0.5일
   - 상세:
     - 정상 ID 접근 → 견적서 렌더링 → PDF 다운로드
     - 잘못된 ID/형식 오류 ID 접근 → 404 / 400 처리 확인
     - 모바일·태블릿·데스크톱 반응형 확인
+  - **완료**: Playwright MCP로 전체 시나리오 검증 완료. 정상 ID 견적서 렌더링(3개 항목·금액 계산), 잘못된 형식 ID → not-found.tsx, 존재하지 않는 UUID → not-found.tsx, 모바일(375px) 레이아웃 정상 확인
 
-- [ ] **DEPLOY-002** 보안 점검
+- [x] **DEPLOY-002** 보안 점검
   - 예상 공수: 0.25일
   - 상세:
     - `NOTION_API_KEY`가 클라이언트 응답·번들에 절대 포함되지 않는지 확인
     - API Route에서 try-catch 전역 처리 및 표준 에러 응답 확인
+  - **완료**: NOTION_API_KEY는 서버사이드 전용(NEXT_PUBLIC_ 미사용). 에러 응답에 민감 정보 미포함. Rate Limiting(분당 10회) 및 구조화 로깅 추가.
 
 #### 3-2. Vercel 배포
 
@@ -267,12 +269,13 @@ src/
   - 상세:
     - `NOTION_API_KEY`, `NOTION_DATABASE_ID`, `NEXT_PUBLIC_APP_URL`
 
-- [ ] **DEPLOY-004** 프로덕션 빌드 검증
+- [x] **DEPLOY-004** 프로덕션 빌드 검증
   - 예상 공수: 0.5일
   - 상세:
     - `npm run build` 로컬 빌드 성공 확인
     - TypeScript 타입 에러 0건, ESLint 경고 0건
     - Vercel 첫 배포 후 URL 동작 확인
+  - **완료**: `npm run build` 성공. TypeScript 에러 0건. `/invoice/[id]` Dynamic(ƒ), `/api/invoice/[id]` Dynamic(ƒ) 정상 빌드. `'use cache'` + `cacheComponents` 충돌 → globalThis 60초 TTL 캐시로 교체 후 해결
 
 ---
 
