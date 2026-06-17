@@ -1,5 +1,4 @@
 import { Client, APIErrorCode, APIResponseError, isFullPage } from "@notionhq/client"
-import { cacheLife, cacheTag } from "next/cache"
 import { NotFoundError, NotionError } from "./errors"
 import {
   INVOICE_PROPERTY_NAMES,
@@ -140,19 +139,39 @@ export function parseInvoiceProperties(page: NotionInvoicePage): ParsedInvoice {
   }
 }
 
-/** 요청 간 60초 서버 캐싱 — use cache 지시문으로 Next.js Cache Components 활성화 */
+interface InvoiceCacheEntry {
+  data: ParsedInvoice
+  expiresAt: number
+}
+
+// 요청 간 60초 in-memory 캐시 — 핫리로드 대응을 위해 globalThis 사용
+const g = globalThis as typeof globalThis & {
+  __invoiceCache?: Map<string, InvoiceCacheEntry>
+}
+if (!g.__invoiceCache) g.__invoiceCache = new Map()
+const invoiceCache = g.__invoiceCache
+
+const CACHE_TTL_MS = 60_000
+
+/** Notion 견적서 조회 + 60초 서버사이드 in-memory 캐싱 */
 export async function fetchCachedInvoice(id: string): Promise<ParsedInvoice> {
-  "use cache"
-  cacheTag(`invoice-${id}`)
-  cacheLife({ revalidate: 60 })
+  const now = Date.now()
+  const cached = invoiceCache.get(id)
+
+  if (cached && now < cached.expiresAt) {
+    return cached.data
+  }
 
   const client = getNotionClient()
   const page = await fetchInvoicePage(client, id)
   const rawItems = await fetchInvoiceItems(client, id)
-  return {
+  const data = {
     ...parseInvoiceProperties(page),
     items: parseInvoiceItems(rawItems),
   }
+
+  invoiceCache.set(id, { data, expiresAt: now + CACHE_TTL_MS })
+  return data
 }
 
 /** Notion 견적 항목(Items DB) 페이지 목록 → ParsedInvoiceItem[] 변환 */
