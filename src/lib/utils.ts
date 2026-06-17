@@ -1,1 +1,1 @@
-export { cn, formatDate, getShareUrl, copyToClipboard } from "./utils/index"
+export { cn, formatDate, copyToClipboard } from "./utils/index"

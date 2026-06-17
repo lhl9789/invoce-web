@@ -1,10 +1,7 @@
-// 공통 API 응답 타입 (Spring Boot 레이어드 아키텍처 응답 형식 기준)
-export interface ApiResponse<T = unknown> {
-  data: T
-  message: string
-  status: number
-  success: boolean
-}
+// 공통 API 응답 타입 — 판별 유니온 (success 필드로 분기)
+export type ApiResponse<T> =
+  | { success: true; data: T }
+  | { success: false; error: { code: string; message: string } }
 
 export interface PaginatedResponse<T> {
   content: T[]
@@ -23,6 +20,6 @@ export interface NavItem {
 }
 
 // 도메인 타입 re-export
-export type { QuoteLink, QuoteItem, Quote, QuotePageData } from "./quote"
-export type { User, LoginFormValues, SignupFormValues } from "./user"
-export type { NotionIntegration, NotionBlock, NotionConnectFormValues } from "./notion"
+export type { NotionBlock, NotionInvoicePage, NotionItemPage } from "./notion"
+export { INVOICE_PROPERTY_NAMES, ITEM_PROPERTY_NAMES } from "./notion"
+export type { ParsedInvoice, ParsedInvoiceItem, InvoiceStatus } from "./invoice"
