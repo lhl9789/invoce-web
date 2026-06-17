@@ -1,0 +1,542 @@
+{
+  "tasks": [
+    {
+      "id": "ecf6da0c-8e9d-4111-94fd-cdd83ad6a4dc",
+      "name": "SETUP-000: 인증·Postgres 관련 레거시 코드 제거",
+      "description": "새 ROADMAP의 단일 노션 DB·인증 없는 구조에 맞춰, 기존 인증·DB 연동을 위해 작성된 스텁 디렉토리와 컴포넌트를 제거한다. src/app/(auth)/, src/app/(protected)/, src/app/q/[slug]/ 디렉토리 삭제. src/components/auth/, src/components/dashboard/, src/components/notion/, src/components/forms/(login-form, signup-form, notion-setup-form) 삭제. src/lib/auth.ts, src/hooks/useAuth.ts, src/hooks/useQuotes.ts, src/types/user.ts, src/types/quote.ts 삭제. src/lib/validations/auth.ts 삭제, src/lib/validations/notion.ts는 보존 여부 검토(불필요 시 삭제). 루트에 proxy.ts/middleware.ts 스텁이 있으면 삭제.",
+      "notes": "삭제 전 각 파일이 실제로 인증/Postgres 전용인지 확인 — src/components/quote/, src/components/common/quote-viewer.tsx 등 견적서 표시 관련 코드는 Phase 2에서 재활용 가능성이 있으므로 삭제하지 말고 보존 목록에 남길 것.",
+      "status": "completed",
+      "dependencies": [],
+      "createdAt": "2026-06-14T14:11:15.583Z",
+      "updatedAt": "2026-06-14T14:28:02.197Z",
+      "relatedFiles": [
+        {
+          "path": "src/app/(auth)",
+          "type": "TO_MODIFY",
+          "description": "비로그인 전용 레이아웃 — 삭제 대상"
+        },
+        {
+          "path": "src/app/(protected)",
+          "type": "TO_MODIFY",
+          "description": "로그인 필수 레이아웃 — 삭제 대상"
+        },
+        {
+          "path": "src/app/q/[slug]",
+          "type": "TO_MODIFY",
+          "description": "slug 기반 공개 견적서 페이지 — 삭제 대상 (invoice/[id]로 대체)"
+        },
+        {
+          "path": "src/lib/auth.ts",
+          "type": "TO_MODIFY",
+          "description": "JWT 유틸 — 삭제 대상"
+        },
+        {
+          "path": "docs/ROADMAP.md",
+          "type": "REFERENCE",
+          "description": "신규 디렉토리 구조 및 마이그레이션 노트"
+        }
+      ],
+      "implementationGuide": "1) find/ls로 위 경로들의 실제 존재 여부 확인. 2) 다른 파일에서의 import 참조를 grep으로 확인 후 함께 정리(미사용 import 제거). 3) 디렉토리/파일 삭제. 4) `npm run lint`, `npx tsc --noEmit`으로 깨진 참조가 없는지 확인.",
+      "verificationCriteria": "지정된 디렉토리/파일이 모두 제거되고, `npx tsc --noEmit`과 `npm run lint`에서 해당 경로 참조로 인한 에러가 없음.",
+      "analysisResult": "Invoce 프로젝트를 PRD v2(노션 단일 데이터베이스, 인증 없는 단순 MVP) 기준의 새 ROADMAP.md(docs/ROADMAP.md)에 맞춰 재구성한다. 기존 Postgres/Prisma, 회원가입·로그인, Notion 토큰 암호화 저장, QuoteLink/slug 기반 공유 링크 구조를 모두 제거하고, 고정된 NOTION_API_KEY/NOTION_DATABASE_ID로 노션 데이터베이스를 직접 조회하여 /invoice/[id] 경로에서 견적서를 공개 조회·PDF 다운로드하는 구조로 전환한다. Phase 0(셋업 및 레거시 정리) → Phase 1(Notion 데이터 파싱 엔진) → Phase 2(견적서 조회·PDF) → Phase 3(통합 테스트·배포) 순서로 진행하며, 각 Phase의 산출물은 docs/ROADMAP.md에 정의된 디렉토리 구조·API·노션 DB 스키마를 따른다.",
+      "summary": "인증·Postgres·구 공유링크 관련 레거시 디렉토리/파일을 모두 삭제했습니다: (auth)/, (protected)/, app/q/[slug], app/quote/[slug], api/auth/*, api/notion/*, api/quote/[slug], components/auth, components/dashboard, components/notion, components/forms 중 인증/Notion설정 폼, lib/auth.ts, lib/validations/auth.ts, lib/validations/notion.ts, hooks/useAuth.ts, hooks/useQuotes.ts, types/user.ts, 루트 proxy.ts. Phase2 재활용 대상(components/quote, components/common/quote-viewer 등)은 보존했고, 이들이 의존하는 types/quote.ts(QuoteLink/QuotePageData)는 types/index.ts에 TODO와 함께 재노출하여 보존했습니다. Header.tsx의 useAuth 관련 TODO/ROUTES.DASHBOARD 참조를 정리했습니다(컴포넌트 자체는 미사용이라 삭제하지 않고 보존). npx tsc --noEmit, npm run lint 모두 통과 확인. 후속 이슈(src/app/page.tsx의 /login 리다이렉트, constants/routes.ts의 구 ROUTES/API_ENDPOINTS 잔존)는 INVOICE-004/SETUP-004에서 처리하도록 기록해두었습니다.",
+      "completedAt": "2026-06-14T14:28:02.195Z"
+    },
+    {
+      "id": "ceb8e8a9-0244-44bc-9070-3f9c3be7b466",
+      "name": "SETUP-001: 환경 변수 스키마 재정의 (.env.example, .env.local)",
+      "description": "단일 노션 DB 구조에 맞춰 환경 변수를 NOTION_API_KEY, NOTION_DATABASE_ID, NEXT_PUBLIC_APP_URL 세 가지로 단순화한다. 기존 .env.example과 .env.local에서 DATABASE_URL, JWT_SECRET, ENCRYPTION_KEY, NEXTAUTH_SECRET 항목을 제거하고, NOTION_DATABASE_ID 항목을 추가한다. .env.local의 기존 NOTION_API_KEY 값은 유지한다.",
+      "notes": "NOTION_API_KEY는 절대 NEXT_PUBLIC_ 접두사를 쓰지 않는다. .env.local은 git에 커밋되지 않으므로 실제 값 입력은 사용자가 직접 채우도록 placeholder 허용.",
+      "status": "completed",
+      "dependencies": [],
+      "createdAt": "2026-06-14T14:11:15.583Z",
+      "updatedAt": "2026-06-14T14:30:09.497Z",
+      "relatedFiles": [
+        {
+          "path": ".env.example",
+          "type": "TO_MODIFY",
+          "description": "예시 환경변수 파일 — Notion 전용 변수로 재정의"
+        },
+        {
+          "path": ".env.local",
+          "type": "TO_MODIFY",
+          "description": "로컬 환경변수 — 불필요한 키 제거, NOTION_DATABASE_ID 추가"
+        },
+        {
+          "path": "docs/ROADMAP.md",
+          "type": "REFERENCE",
+          "description": "SETUP-001 상세 명세"
+        }
+      ],
+      "implementationGuide": "1) .env.example을 읽고 데이터베이스/인증/암호화 섹션을 제거, 'Notion API' 섹션으로 NOTION_API_KEY(설명 포함), NOTION_DATABASE_ID, NEXT_PUBLIC_APP_URL만 남기도록 재작성. 2) .env.local에서 DATABASE_URL, JWT_SECRET, NEXTAUTH_SECRET, (주석처리된) ENCRYPTION_KEY 라인 제거하고 NOTION_DATABASE_ID=<실제 DB ID> 추가 — 값은 사용자에게 확인 필요 시 placeholder로 남김.",
+      "verificationCriteria": ".env.example과 .env.local에 NOTION_API_KEY, NOTION_DATABASE_ID, NEXT_PUBLIC_APP_URL만 남아있고 DATABASE_URL/JWT_SECRET/ENCRYPTION_KEY/NEXTAUTH_SECRET이 존재하지 않음.",
+      "analysisResult": "Invoce 프로젝트를 PRD v2(노션 단일 데이터베이스, 인증 없는 단순 MVP) 기준의 새 ROADMAP.md(docs/ROADMAP.md)에 맞춰 재구성한다. 기존 Postgres/Prisma, 회원가입·로그인, Notion 토큰 암호화 저장, QuoteLink/slug 기반 공유 링크 구조를 모두 제거하고, 고정된 NOTION_API_KEY/NOTION_DATABASE_ID로 노션 데이터베이스를 직접 조회하여 /invoice/[id] 경로에서 견적서를 공개 조회·PDF 다운로드하는 구조로 전환한다. Phase 0(셋업 및 레거시 정리) → Phase 1(Notion 데이터 파싱 엔진) → Phase 2(견적서 조회·PDF) → Phase 3(통합 테스트·배포) 순서로 진행하며, 각 Phase의 산출물은 docs/ROADMAP.md에 정의된 디렉토리 구조·API·노션 DB 스키마를 따른다.",
+      "summary": ".env.example과 .env.local을 NOTION_API_KEY, NOTION_DATABASE_ID, NEXT_PUBLIC_APP_URL 세 항목으로 단순화했습니다. DATABASE_URL, JWT_SECRET, ENCRYPTION_KEY, NEXTAUTH_SECRET, NEXT_PUBLIC_API_URL을 모두 제거했습니다. .env.local의 기존 NOTION_API_KEY 값은 유지했고, NOTION_DATABASE_ID는 사용자가 실제 Notion DB ID를 채워야 하는 placeholder로 남겼습니다. NEXT_PUBLIC_API_URL을 참조하던 src/constants/index.ts는 fallback(localhost) 처리되어 있어 즉시 깨지지 않지만, 해당 잔존 참조 정리는 이전에 기록된 후속 이슈(SETUP-004 등)에서 처리됩니다.",
+      "completedAt": "2026-06-14T14:30:09.495Z"
+    },
+    {
+      "id": "9da6a2d9-249c-439e-85ea-ebf5119044d7",
+      "name": "SETUP-002: Notion 클라이언트 싱글톤 구성",
+      "description": "@notionhq/client 패키지를 설치하고, NOTION_API_KEY 기반의 Notion Client 싱글톤을 src/lib/notion.ts에 구성한다. 개발환경 핫리로드 시 클라이언트가 중복 생성되지 않도록 한다.",
+      "notes": "NOTION_API_KEY가 비어있을 경우 명확한 에러 메시지를 던지도록 처리.",
+      "status": "completed",
+      "dependencies": [
+        {
+          "taskId": "ceb8e8a9-0244-44bc-9070-3f9c3be7b466"
+        }
+      ],
+      "createdAt": "2026-06-14T14:11:15.583Z",
+      "updatedAt": "2026-06-17T15:48:02.940Z",
+      "relatedFiles": [
+        {
+          "path": "src/lib/notion.ts",
+          "type": "TO_MODIFY",
+          "description": "Notion 클라이언트 싱글톤 및 파싱 함수가 위치할 파일"
+        },
+        {
+          "path": "package.json",
+          "type": "TO_MODIFY",
+          "description": "@notionhq/client 의존성 추가"
+        }
+      ],
+      "implementationGuide": "1) `npm install @notionhq/client`. 2) src/lib/notion.ts에 getNotionClient() 함수 작성 — 모듈 스코프 변수에 Client 인스턴스를 캐싱하고, 없으면 new Client({ auth: process.env.NOTION_API_KEY })로 생성. 3) 기존 TODO 스텁(createNotionClient, queryDatabase, getPageBlocks)은 Phase 1(PARSE-002)에서 대체될 예정이므로 본 작업에서는 클라이언트 생성 함수만 정리.",
+      "verificationCriteria": "getNotionClient() 호출 시 동일 인스턴스가 재사용되고, NOTION_API_KEY 누락 시 명확한 에러가 발생함.",
+      "analysisResult": "Invoce 프로젝트를 PRD v2(노션 단일 데이터베이스, 인증 없는 단순 MVP) 기준의 새 ROADMAP.md(docs/ROADMAP.md)에 맞춰 재구성한다. 기존 Postgres/Prisma, 회원가입·로그인, Notion 토큰 암호화 저장, QuoteLink/slug 기반 공유 링크 구조를 모두 제거하고, 고정된 NOTION_API_KEY/NOTION_DATABASE_ID로 노션 데이터베이스를 직접 조회하여 /invoice/[id] 경로에서 견적서를 공개 조회·PDF 다운로드하는 구조로 전환한다. Phase 0(셋업 및 레거시 정리) → Phase 1(Notion 데이터 파싱 엔진) → Phase 2(견적서 조회·PDF) → Phase 3(통합 테스트·배포) 순서로 진행하며, 각 Phase의 산출물은 docs/ROADMAP.md에 정의된 디렉토리 구조·API·노션 DB 스키마를 따른다.",
+      "summary": "src/lib/notion.ts에 getNotionClient() 싱글톤 구현 완료. globalThis 캐싱으로 핫리로드 중복 방지, NOTION_API_KEY 누락 시 호출 시점에 명확한 에러 발생. 실제 Notion API 연동 확인됨.",
+      "completedAt": "2026-06-17T15:48:02.935Z"
+    },
+    {
+      "id": "3bd8b525-9f07-42e5-be96-fef5d924fd58",
+      "name": "SETUP-003: 공통 API 응답 타입 및 에러 처리 유틸 정의",
+      "description": "ROADMAP의 API 응답 표준({success:true,data} / {success:false,error:{code,message}})에 맞춰 ApiResponse<T> 판별 유니온 타입을 정의하고, success()/error() 헬퍼 함수와 AppError/NotFoundError/NotionError 커스텀 에러 클래스를 작성한다.",
+      "notes": "기존 src/lib/api/client.ts가 이 타입을 사용한다면 호출부도 함께 점검(단, 대규모 수정은 INVOICE-001 작업 시 실제 사용 시점에 맞춰 진행 가능).",
+      "status": "completed",
+      "dependencies": [],
+      "createdAt": "2026-06-14T14:11:15.583Z",
+      "updatedAt": "2026-06-17T15:48:05.994Z",
+      "relatedFiles": [
+        {
+          "path": "src/types/index.ts",
+          "type": "TO_MODIFY",
+          "description": "ApiResponse<T> 타입 정의"
+        },
+        {
+          "path": "src/lib/api-response.ts",
+          "type": "CREATE",
+          "description": "success/error 응답 헬퍼"
+        },
+        {
+          "path": "src/lib/errors.ts",
+          "type": "CREATE",
+          "description": "AppError, NotFoundError, NotionError 클래스"
+        }
+      ],
+      "implementationGuide": "1) src/types/index.ts에 ApiResponse<T> = { success: true; data: T } | { success: false; error: { code: string; message: string } } 형태로 정의(기존 Spring Boot 스타일 타입이 있다면 교정). 2) src/lib/api-response.ts에 success(data) / error(code, message, status) 헬퍼 작성 — NextResponse.json 반환. 3) src/lib/errors.ts에 AppError(base), NotFoundError, NotionError 클래스 작성(각각 code, message, httpStatus 보유).",
+      "verificationCriteria": "ApiResponse<T>가 판별 유니온으로 정의되고, success()/error() 헬퍼와 3개 에러 클래스가 타입 에러 없이 컴파일됨.",
+      "analysisResult": "Invoce 프로젝트를 PRD v2(노션 단일 데이터베이스, 인증 없는 단순 MVP) 기준의 새 ROADMAP.md(docs/ROADMAP.md)에 맞춰 재구성한다. 기존 Postgres/Prisma, 회원가입·로그인, Notion 토큰 암호화 저장, QuoteLink/slug 기반 공유 링크 구조를 모두 제거하고, 고정된 NOTION_API_KEY/NOTION_DATABASE_ID로 노션 데이터베이스를 직접 조회하여 /invoice/[id] 경로에서 견적서를 공개 조회·PDF 다운로드하는 구조로 전환한다. Phase 0(셋업 및 레거시 정리) → Phase 1(Notion 데이터 파싱 엔진) → Phase 2(견적서 조회·PDF) → Phase 3(통합 테스트·배포) 순서로 진행하며, 각 Phase의 산출물은 docs/ROADMAP.md에 정의된 디렉토리 구조·API·노션 DB 스키마를 따른다.",
+      "summary": "ApiResponse 판별 유니온, success()/error() 헬퍼, AppError/NotFoundError/NotionError 클래스 모두 구현 완료. tsc --noEmit 타입 에러 0건 확인.",
+      "completedAt": "2026-06-17T15:48:05.991Z"
+    },
+    {
+      "id": "42de7ea7-e83e-4c45-906c-71aae7df7608",
+      "name": "SETUP-004: 견적서 ID 검증 스키마 정의",
+      "description": "/invoice/[id] 및 /api/invoice/[id]에서 사용할 Notion 페이지 ID 형식 검증용 Zod 스키마를 작성한다. 하이픈 포함/미포함 UUID 형식을 모두 허용한다.",
+      "notes": "기존 src/lib/validations/notion.ts의 databaseId 검증 로직이 있다면 참고하되, 인증 폼 관련 스키마는 포함하지 않음.",
+      "status": "completed",
+      "dependencies": [],
+      "createdAt": "2026-06-14T14:11:15.583Z",
+      "updatedAt": "2026-06-17T15:48:08.732Z",
+      "relatedFiles": [
+        {
+          "path": "src/lib/validations/invoice.ts",
+          "type": "CREATE",
+          "description": "Notion 페이지 ID 형식 검증 스키마"
+        },
+        {
+          "path": "src/lib/validations/notion.ts",
+          "type": "REFERENCE",
+          "description": "기존 ID 형식 검증 참고"
+        }
+      ],
+      "implementationGuide": "src/lib/validations/invoice.ts에 invoiceIdSchema = z.string().regex(/^[0-9a-fA-F]{32}$|^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/) 형태로 작성. 검증 실패 시 호출부(INVOICE-001)에서 400 응답으로 매핑.",
+      "verificationCriteria": "유효한 UUID(하이픈 포함/미포함) 입력 시 통과, 그 외 문자열 입력 시 실패하는 단위 테스트 또는 수동 검증 통과.",
+      "analysisResult": "Invoce 프로젝트를 PRD v2(노션 단일 데이터베이스, 인증 없는 단순 MVP) 기준의 새 ROADMAP.md(docs/ROADMAP.md)에 맞춰 재구성한다. 기존 Postgres/Prisma, 회원가입·로그인, Notion 토큰 암호화 저장, QuoteLink/slug 기반 공유 링크 구조를 모두 제거하고, 고정된 NOTION_API_KEY/NOTION_DATABASE_ID로 노션 데이터베이스를 직접 조회하여 /invoice/[id] 경로에서 견적서를 공개 조회·PDF 다운로드하는 구조로 전환한다. Phase 0(셋업 및 레거시 정리) → Phase 1(Notion 데이터 파싱 엔진) → Phase 2(견적서 조회·PDF) → Phase 3(통합 테스트·배포) 순서로 진행하며, 각 Phase의 산출물은 docs/ROADMAP.md에 정의된 디렉토리 구조·API·노션 DB 스키마를 따른다.",
+      "summary": "invoiceIdSchema(UUID 하이픈 포함/미포함)와 isValidInvoiceId() 헬퍼 구현 완료. API Route에서 잘못된 형식 접근 시 400 응답 Playwright 검증 통과.",
+      "completedAt": "2026-06-17T15:48:08.729Z"
+    },
+    {
+      "id": "1cf5765e-8cf5-4466-9b4d-8d53db23d048",
+      "name": "PARSE-001: Notion/Invoice 타입 정의",
+      "description": "src/types/notion.ts와 src/types/invoice.ts를 새 구조에 맞춰 정의한다. NotionInvoicePage(노션 DB 페이지 원시 타입), NotionBlock(블록 기본 타입), ParsedInvoice(견적서번호·클라이언트명·발행일·유효기간·총액·상태·항목목록), ParsedInvoiceItem(품목·수량·단가·금액)을 작성한다.",
+      "notes": "이후 PARSE-002, INVOICE-002에서 이 타입을 직접 사용하므로 필드명은 ROADMAP 표의 매핑 필드명(invoiceNumber, clientName, issueDate, validUntil, status, totalAmount, items, description, quantity, unitPrice, amount)과 정확히 일치시킬 것.",
+      "status": "completed",
+      "dependencies": [
+        {
+          "taskId": "ecf6da0c-8e9d-4111-94fd-cdd83ad6a4dc"
+        }
+      ],
+      "createdAt": "2026-06-14T14:11:15.583Z",
+      "updatedAt": "2026-06-14T14:38:26.255Z",
+      "relatedFiles": [
+        {
+          "path": "src/types/notion.ts",
+          "type": "TO_MODIFY",
+          "description": "NotionInvoicePage, NotionBlock 타입으로 재정의"
+        },
+        {
+          "path": "src/types/invoice.ts",
+          "type": "CREATE",
+          "description": "ParsedInvoice, ParsedInvoiceItem 타입"
+        },
+        {
+          "path": "src/types/quote.ts",
+          "type": "TO_MODIFY",
+          "description": "invoice.ts로 대체 후 제거 검토"
+        },
+        {
+          "path": "docs/ROADMAP.md",
+          "type": "REFERENCE",
+          "description": "노션 데이터베이스 구조 매핑 표"
+        }
+      ],
+      "implementationGuide": "1) src/types/notion.ts: 기존 NotionIntegration, NotionConnectFormValues 등 인증 관련 타입 제거, NotionInvoicePage(PageObjectResponse 형태 참고)와 NotionBlock(id, type, content) 정의. 2) src/types/invoice.ts(신규, src/types/quote.ts 대체): ParsedInvoice, ParsedInvoiceItem 인터페이스 작성 — ROADMAP의 '노션 데이터베이스 구조' 표의 매핑 필드를 그대로 반영.",
+      "verificationCriteria": "NotionInvoicePage, NotionBlock, ParsedInvoice, ParsedInvoiceItem 타입이 정의되고 타입 에러 없이 빌드됨.",
+      "analysisResult": "Invoce 프로젝트를 PRD v2(노션 단일 데이터베이스, 인증 없는 단순 MVP) 기준의 새 ROADMAP.md(docs/ROADMAP.md)에 맞춰 재구성한다. 기존 Postgres/Prisma, 회원가입·로그인, Notion 토큰 암호화 저장, QuoteLink/slug 기반 공유 링크 구조를 모두 제거하고, 고정된 NOTION_API_KEY/NOTION_DATABASE_ID로 노션 데이터베이스를 직접 조회하여 /invoice/[id] 경로에서 견적서를 공개 조회·PDF 다운로드하는 구조로 전환한다. Phase 0(셋업 및 레거시 정리) → Phase 1(Notion 데이터 파싱 엔진) → Phase 2(견적서 조회·PDF) → Phase 3(통합 테스트·배포) 순서로 진행하며, 각 Phase의 산출물은 docs/ROADMAP.md에 정의된 디렉토리 구조·API·노션 DB 스키마를 따른다.",
+      "summary": "사용자가 제공한 실제 Notion DB CSV(Invoices, Items)를 확인해 ROADMAP 매핑 표와 비교했습니다. src/types/notion.ts를 재정의하여 @notionhq/client의 PageObjectResponse를 NotionInvoicePage/NotionItemPage로 별칭 지정하고, NotionBlock(content를 unknown으로 강화)을 유지했으며, 실제 한글 컬럼명을 INVOICE_PROPERTY_NAMES/ITEM_PROPERTY_NAMES 상수로 추가했습니다(실제 DB는 \"클라언트명\"이며 ROADMAP의 \"클라이언트명\"과 다름, \"공급자 정보\" 컬럼은 ROADMAP 표에 없지만 실제 DB에 존재). src/types/invoice.ts를 신규 작성하여 InvoiceStatus, ParsedInvoiceItem, ParsedInvoice를 ROADMAP 매핑 필드명과 정확히 일치시켜 정의했습니다(invoiceNumber, clientName, issueDate, validUntil, status, totalAmount, supplierInfo, items, description, quantity, unitPrice, amount). src/types/index.ts에 새 타입과 상수를 re-export 추가했습니다. 기존 src/types/quote.ts와 components/quote, components/common 의존성은 INVOICE-002 범위로 남겨두고 건드리지 않았습니다. npx tsc --noEmit 통과, npm run lint는 기존부터 존재하던 무관한 2개 에러(use-mobile.ts, lib/notion.ts)만 남아있고 신규 에러 없음을 확인했습니다.",
+      "completedAt": "2026-06-14T14:38:26.252Z"
+    },
+    {
+      "id": "ee012104-5447-4423-b240-3f305f53921d",
+      "name": "PARSE-002: Notion 데이터 파싱 함수 구현 (src/lib/notion.ts)",
+      "description": "src/lib/notion.ts에 fetchInvoicePage, fetchInvoiceItems, parseInvoiceProperties, parseInvoiceItems 함수를 구현한다. Notion API로 견적서 페이지와 항목 데이터를 조회하고 ParsedInvoice/ParsedInvoiceItem으로 변환한다.",
+      "notes": "Items를 Relation DB로 할지 페이지 내 테이블 블록으로 할지는 실제 노션 DB 구조에 따라 분기 처리하거나, 둘 중 하나를 우선 지원 후 다른 방식은 fallback으로 구현. 파싱 실패 시 예외를 던지지 않고 기본값으로 처리해 null 안전성을 확보한다.",
+      "status": "completed",
+      "dependencies": [
+        {
+          "taskId": "1cf5765e-8cf5-4466-9b4d-8d53db23d048"
+        },
+        {
+          "taskId": "9da6a2d9-249c-439e-85ea-ebf5119044d7"
+        }
+      ],
+      "createdAt": "2026-06-14T14:11:15.583Z",
+      "updatedAt": "2026-06-17T15:48:31.695Z",
+      "relatedFiles": [
+        {
+          "path": "src/lib/notion.ts",
+          "type": "TO_MODIFY",
+          "description": "기존 TODO 스텁(createNotionClient, queryDatabase, getPageBlocks)을 실제 구현으로 대체"
+        },
+        {
+          "path": "src/types/invoice.ts",
+          "type": "DEPENDENCY",
+          "description": "ParsedInvoice, ParsedInvoiceItem 타입"
+        },
+        {
+          "path": "src/lib/errors.ts",
+          "type": "DEPENDENCY",
+          "description": "NotFoundError, NotionError"
+        }
+      ],
+      "implementationGuide": "1) fetchInvoicePage(client, pageId): client.pages.retrieve({page_id: pageId}) 호출, 결과 없으면 NotFoundError 발생. 2) fetchInvoiceItems(client, page): Relation 프로퍼티가 있으면 연결된 Items DB를 client.databases.query 또는 client.pages.retrieve로 조회, 없으면 client.blocks.children.list({block_id: pageId})로 본문 테이블 블록을 가져옴. 3) parseInvoiceProperties(page): Title→invoiceNumber, Date→issueDate/validUntil, Number→totalAmount, Select→status로 매핑, 누락 시 기본값(null/0/'') 처리. 4) parseInvoiceItems(rawItems): description/quantity/unitPrice/amount 추출 — Relation DB 결과 또는 테이블 블록 셀 텍스트 파싱 두 경로 모두 처리.",
+      "verificationCriteria": "유효한 Notion 페이지 ID로 fetchInvoicePage/fetchInvoiceItems 호출 시 ParsedInvoice/ParsedInvoiceItem[] 형태의 데이터가 반환되고, 존재하지 않는 ID는 NotFoundError를 던짐.",
+      "analysisResult": "Invoce 프로젝트를 PRD v2(노션 단일 데이터베이스, 인증 없는 단순 MVP) 기준의 새 ROADMAP.md(docs/ROADMAP.md)에 맞춰 재구성한다. 기존 Postgres/Prisma, 회원가입·로그인, Notion 토큰 암호화 저장, QuoteLink/slug 기반 공유 링크 구조를 모두 제거하고, 고정된 NOTION_API_KEY/NOTION_DATABASE_ID로 노션 데이터베이스를 직접 조회하여 /invoice/[id] 경로에서 견적서를 공개 조회·PDF 다운로드하는 구조로 전환한다. Phase 0(셋업 및 레거시 정리) → Phase 1(Notion 데이터 파싱 엔진) → Phase 2(견적서 조회·PDF) → Phase 3(통합 테스트·배포) 순서로 진행하며, 각 Phase의 산출물은 docs/ROADMAP.md에 정의된 디렉토리 구조·API·노션 DB 스키마를 따른다.",
+      "summary": "fetchInvoicePage/fetchInvoiceItems/parseInvoiceProperties/parseInvoiceItems 4개 함수 구현 완료. Relation 방식으로 Items 조회, select/status 타입 모두 처리, null 안전 기본값 적용. 실제 Notion DB(INV-2026-001, 3개 항목) API 연동 Playwright 검증 통과.",
+      "completedAt": "2026-06-17T15:48:31.693Z"
+    },
+    {
+      "id": "862d0833-c9d9-41df-a604-6593b402a8f2",
+      "name": "PARSE-003: Notion 파싱 유닛 테스트 작성",
+      "description": "parseInvoiceProperties와 parseInvoiceItems에 대한 단위 테스트를 작성한다. Notion API 응답 형태의 mock 데이터를 사용해 정상 케이스와 프로퍼티 누락 케이스를 검증한다.",
+      "notes": "테스트 러너가 프로젝트에 아직 없다면 최소 설정만 추가하고 과도한 설정은 지양한다.",
+      "status": "completed",
+      "dependencies": [
+        {
+          "taskId": "ee012104-5447-4423-b240-3f305f53921d"
+        }
+      ],
+      "createdAt": "2026-06-14T14:11:15.583Z",
+      "updatedAt": "2026-06-17T15:52:20.739Z",
+      "relatedFiles": [
+        {
+          "path": "src/lib/notion.test.ts",
+          "type": "CREATE",
+          "description": "parseInvoiceProperties/parseInvoiceItems 단위 테스트"
+        },
+        {
+          "path": "package.json",
+          "type": "TO_MODIFY",
+          "description": "테스트 러너 의존성 및 스크립트 추가(필요 시)"
+        }
+      ],
+      "implementationGuide": "1) 프로젝트의 테스트 러너(vitest/jest 등) 설정 확인, 없으면 vitest 설치 및 최소 설정 추가. 2) __tests__ 또는 *.test.ts 파일에 PageObjectResponse 형태의 mock 객체(정상 케이스, Title/Date/Number/Select 일부 누락 케이스) 작성. 3) parseInvoiceProperties(mock) 결과가 ParsedInvoice 형태와 기본값 처리를 만족하는지 assert. 4) parseInvoiceItems에 대해 Relation 결과/테이블 블록 결과 두 mock으로 각각 테스트.",
+      "verificationCriteria": "테스트 실행 시 정상 케이스와 누락 케이스 모두 통과(green).",
+      "analysisResult": "Invoce 프로젝트를 PRD v2(노션 단일 데이터베이스, 인증 없는 단순 MVP) 기준의 새 ROADMAP.md(docs/ROADMAP.md)에 맞춰 재구성한다. 기존 Postgres/Prisma, 회원가입·로그인, Notion 토큰 암호화 저장, QuoteLink/slug 기반 공유 링크 구조를 모두 제거하고, 고정된 NOTION_API_KEY/NOTION_DATABASE_ID로 노션 데이터베이스를 직접 조회하여 /invoice/[id] 경로에서 견적서를 공개 조회·PDF 다운로드하는 구조로 전환한다. Phase 0(셋업 및 레거시 정리) → Phase 1(Notion 데이터 파싱 엔진) → Phase 2(견적서 조회·PDF) → Phase 3(통합 테스트·배포) 순서로 진행하며, 각 Phase의 산출물은 docs/ROADMAP.md에 정의된 디렉토리 구조·API·노션 DB 스키마를 따른다.",
+      "summary": "vitest 설치 및 최소 설정(vitest.config.ts) 완료. src/lib/notion.test.ts에 createMockInvoicePage/createMockItemPage 헬퍼 작성. parseInvoiceProperties: 정상 케이스, 상태값 매핑(대기/승인/거절/null), 누락 프로퍼티 기본값, date null 케이스. parseInvoiceItems: 정상 케이스(formula amount 포함), 빈 배열, 누락 프로퍼티 기본값, formula 타입 불일치 케이스. 총 12개 테스트 모두 green.",
+      "completedAt": "2026-06-17T15:52:20.737Z"
+    },
+    {
+      "id": "9632fae3-7815-4a61-a609-3d9ac8ee00c1",
+      "name": "INVOICE-001: GET /api/invoice/[id] 견적서 데이터 조회 API 구현",
+      "description": "인증 불필요한 공개 API로, Notion 페이지 ID(id)를 받아 견적서 데이터를 조회·파싱하여 ApiResponse<ParsedInvoice> 형식으로 반환한다. ID 형식 검증, 존재하지 않는 페이지 404, Notion API 실패 500 처리를 포함한다.",
+      "notes": "기존 src/app/api/quote/[slug]/route.ts, src/app/api/notion/quotes/route.ts의 TODO 스텁은 이 작업으로 대체되므로 삭제하거나 invoice 경로로 이전한다.",
+      "status": "completed",
+      "dependencies": [
+        {
+          "taskId": "3bd8b525-9f07-42e5-be96-fef5d924fd58"
+        },
+        {
+          "taskId": "42de7ea7-e83e-4c45-906c-71aae7df7608"
+        },
+        {
+          "taskId": "ee012104-5447-4423-b240-3f305f53921d"
+        }
+      ],
+      "createdAt": "2026-06-14T14:12:20.867Z",
+      "updatedAt": "2026-06-17T15:52:30.083Z",
+      "relatedFiles": [
+        {
+          "path": "src/app/api/invoice/[id]/route.ts",
+          "type": "CREATE",
+          "description": "견적서 데이터 조회 API"
+        },
+        {
+          "path": "src/app/api/quote/[slug]/route.ts",
+          "type": "TO_MODIFY",
+          "description": "구 slug 기반 API — 제거 대상"
+        },
+        {
+          "path": "src/app/api/notion/quotes/route.ts",
+          "type": "TO_MODIFY",
+          "description": "구 목록 조회 API — 제거 대상"
+        },
+        {
+          "path": "src/app/api/notion/connect/route.ts",
+          "type": "TO_MODIFY",
+          "description": "구 연동 API — 제거 대상"
+        }
+      ],
+      "implementationGuide": "1) src/app/api/invoice/[id]/route.ts 작성. 2) params.id를 invoiceIdSchema(SETUP-004)로 검증, 실패 시 error() 헬퍼로 400 반환. 3) getNotionClient()로 클라이언트 생성 후 fetchInvoicePage, fetchInvoiceItems(PARSE-002) 호출. 4) parseInvoiceProperties, parseInvoiceItems로 ParsedInvoice 구성. 5) NotFoundError → 404, NotionError/기타 → 500, 성공 시 success(parsedInvoice)로 200 반환. 6) try-catch 전역 처리.",
+      "verificationCriteria": "유효한 Notion 페이지 ID로 호출 시 200과 ParsedInvoice 데이터 반환, 형식 오류 ID는 400, 존재하지 않는 ID는 404, Playwright MCP로 세 케이스 모두 확인.",
+      "analysisResult": "Invoce 프로젝트를 PRD v2(노션 단일 데이터베이스, 인증 없는 단순 MVP) 기준의 새 ROADMAP.md(docs/ROADMAP.md)에 맞춰 재구성한다. Phase 0~1(셋업/파싱 엔진)에 이어, Phase 2(견적서 조회 페이지·PDF 다운로드)와 Phase 3(통합 테스트·배포)을 정의한다. /invoice/[id] 경로에서 Notion 페이지 ID로 견적서를 공개 조회하고 window.print() 기반 PDF 다운로드를 제공하며, 인증·DB 없이 Vercel에 배포 가능한 상태를 목표로 한다.",
+      "summary": "src/app/api/invoice/[id]/route.ts 구현 완료. isValidInvoiceId()로 형식 검증 → 400(INVALID_INVOICE_ID), fetchInvoicePage+fetchInvoiceItems → parseInvoiceProperties+parseInvoiceItems → success(ParsedInvoice) 200. NotFoundError → 404(INVOICE_NOT_FOUND), NotionError → 500, 기타 → 500. Playwright MCP로 3개 케이스 모두 검증 완료(유효 ID 200, 비존재 UUID 404, 잘못된 형식 400).",
+      "completedAt": "2026-06-17T15:52:30.080Z"
+    },
+    {
+      "id": "4df7001d-7b07-4937-913b-eb85c9dbb3f7",
+      "name": "INVOICE-002: InvoiceViewer 컴포넌트 구현",
+      "description": "견적서 데이터를 화면에 렌더링하는 핵심 컴포넌트. 헤더(견적서 번호·발행일·유효기간), 클라이언트 정보, 품목 테이블(품목|수량|단가|금액), 소계/세금(10%)/총액 섹션을 포함하며 반응형 레이아웃과 Print CSS를 적용한다.",
+      "notes": "shadcn/ui Table, Card 컴포넌트 활용 가능. 통화 포맷은 Intl.NumberFormat('ko-KR')을 사용한 유틸 함수로 분리 고려.",
+      "status": "completed",
+      "dependencies": [
+        {
+          "taskId": "1cf5765e-8cf5-4466-9b4d-8d53db23d048"
+        }
+      ],
+      "createdAt": "2026-06-14T14:12:20.867Z",
+      "updatedAt": "2026-06-17T15:48:11.426Z",
+      "relatedFiles": [
+        {
+          "path": "src/components/invoice/InvoiceViewer.tsx",
+          "type": "CREATE",
+          "description": "견적서 렌더링 핵심 컴포넌트"
+        },
+        {
+          "path": "src/components/quote/QuoteViewer.tsx",
+          "type": "TO_MODIFY",
+          "description": "구 견적서 뷰어 — invoice/InvoiceViewer.tsx로 대체 후 제거"
+        },
+        {
+          "path": "src/components/common/quote-viewer.tsx",
+          "type": "TO_MODIFY",
+          "description": "중복 구현 — 정리 대상"
+        },
+        {
+          "path": "src/types/invoice.ts",
+          "type": "DEPENDENCY",
+          "description": "ParsedInvoice, ParsedInvoiceItem"
+        }
+      ],
+      "implementationGuide": "1) src/components/invoice/InvoiceViewer.tsx 작성, props로 ParsedInvoice를 받음. 2) 섹션별 레이아웃: 헤더(견적서번호/발행일/유효기간), 클라이언트정보, 품목 테이블, 합계(소계=품목합, 세금=소계*0.1, 총액=소계+세금). 3) Tailwind 반응형 클래스로 모바일/태블릿/데스크톱 대응. 4) @media print에서 비인쇄 요소(버튼 등)에 print:hidden 적용. 5) 기존 src/components/quote/QuoteViewer.tsx, src/components/common/quote-viewer.tsx의 구조를 참고해 재작성하고 구 파일은 정리.",
+      "verificationCriteria": "ParsedInvoice 목업 데이터를 props로 전달 시 모든 섹션이 올바르게 렌더링되고, 인쇄 미리보기에서 비인쇄 요소가 숨겨짐. 모바일/데스크톱 뷰포트에서 레이아웃 깨짐 없음.",
+      "analysisResult": "Invoce 프로젝트를 PRD v2(노션 단일 데이터베이스, 인증 없는 단순 MVP) 기준의 새 ROADMAP.md(docs/ROADMAP.md)에 맞춰 재구성한다. Phase 0~1(셋업/파싱 엔진)에 이어, Phase 2(견적서 조회 페이지·PDF 다운로드)와 Phase 3(통합 테스트·배포)을 정의한다. /invoice/[id] 경로에서 Notion 페이지 ID로 견적서를 공개 조회하고 window.print() 기반 PDF 다운로드를 제공하며, 인증·DB 없이 Vercel에 배포 가능한 상태를 목표로 한다.",
+      "summary": "InvoiceViewer.tsx 구현 및 UI/UX 개선 완료. 헤더/클라이언트/테이블/합계 섹션, Print CSS, overflow-x-auto 모바일 스크롤, 실제 Notion 데이터 렌더링 Playwright 확인.",
+      "completedAt": "2026-06-17T15:48:11.424Z"
+    },
+    {
+      "id": "baacd2c1-6806-4ffe-bd89-8d37c500e3de",
+      "name": "INVOICE-003: PdfDownloadButton 컴포넌트 구현",
+      "description": "window.print()를 호출해 Print CSS 기반으로 견적서를 PDF로 저장할 수 있는 버튼 컴포넌트. 클릭 전 document.title을 견적서 제목으로 변경하고 인쇄 후 원래 제목으로 복원한다.",
+      "notes": "afterprint 이벤트는 일부 모바일 브라우저에서 동작하지 않을 수 있으므로 setTimeout fallback을 함께 둔다.",
+      "status": "completed",
+      "dependencies": [
+        {
+          "taskId": "4df7001d-7b07-4937-913b-eb85c9dbb3f7"
+        }
+      ],
+      "createdAt": "2026-06-14T14:12:20.867Z",
+      "updatedAt": "2026-06-17T15:48:34.010Z",
+      "relatedFiles": [
+        {
+          "path": "src/components/invoice/PdfDownloadButton.tsx",
+          "type": "CREATE",
+          "description": "PDF 다운로드(인쇄) 버튼"
+        },
+        {
+          "path": "src/components/quote/PdfDownloadButton.tsx",
+          "type": "TO_MODIFY",
+          "description": "구 위치 — invoice/PdfDownloadButton.tsx로 이전 후 제거"
+        }
+      ],
+      "implementationGuide": "1) src/components/invoice/PdfDownloadButton.tsx 작성('use client'). 2) props로 invoiceNumber(또는 title) 받음. 3) onClick: 이전 document.title 저장 → document.title = `${invoiceNumber}` 변경 → window.print() 호출 → afterprint 이벤트 또는 setTimeout으로 title 복원. 4) shadcn/ui Button + lucide-react 아이콘 사용. 5) 기존 src/components/quote/PdfDownloadButton.tsx 자리에 동일 경로로 구현.",
+      "verificationCriteria": "버튼 클릭 시 인쇄 다이얼로그가 열리고 document.title이 견적서 번호로 표시되며, 인쇄 종료 후 원래 제목으로 복원됨.",
+      "analysisResult": "Invoce 프로젝트를 PRD v2(노션 단일 데이터베이스, 인증 없는 단순 MVP) 기준의 새 ROADMAP.md(docs/ROADMAP.md)에 맞춰 재구성한다. Phase 0~1(셋업/파싱 엔진)에 이어, Phase 2(견적서 조회 페이지·PDF 다운로드)와 Phase 3(통합 테스트·배포)을 정의한다. /invoice/[id] 경로에서 Notion 페이지 ID로 견적서를 공개 조회하고 window.print() 기반 PDF 다운로드를 제공하며, 인증·DB 없이 Vercel에 배포 가능한 상태를 목표로 한다.",
+      "summary": "PdfDownloadButton.tsx 구현 완료. window.print() 호출, 인쇄 전 document.title 변경 후 afterprint 이벤트로 복원, print:hidden 적용. 인쇄 다이얼로그 동작 확인.",
+      "completedAt": "2026-06-17T15:48:34.007Z"
+    },
+    {
+      "id": "148a614b-9380-4256-8a99-56e0c294ed82",
+      "name": "INVOICE-004: 견적서 조회 페이지 구현 (/invoice/[id])",
+      "description": "Server Component로 Notion 페이지 ID를 받아 견적서 데이터를 조회하고, InvoiceViewer와 PdfDownloadButton을 렌더링하는 공개 페이지. 존재하지 않는 ID는 notFound()를 호출한다.",
+      "notes": "기존 src/app/q/[slug]/page.tsx 구조를 참고하되 slug 대신 Notion 페이지 id를 직접 사용.",
+      "status": "completed",
+      "dependencies": [
+        {
+          "taskId": "9632fae3-7815-4a61-a609-3d9ac8ee00c1"
+        },
+        {
+          "taskId": "4df7001d-7b07-4937-913b-eb85c9dbb3f7"
+        },
+        {
+          "taskId": "baacd2c1-6806-4ffe-bd89-8d37c500e3de"
+        }
+      ],
+      "createdAt": "2026-06-14T14:12:20.867Z",
+      "updatedAt": "2026-06-17T15:52:42.141Z",
+      "relatedFiles": [
+        {
+          "path": "src/app/invoice/[id]/page.tsx",
+          "type": "CREATE",
+          "description": "견적서 공개 조회 페이지"
+        },
+        {
+          "path": "src/app/q/[slug]/page.tsx",
+          "type": "TO_MODIFY",
+          "description": "구 slug 기반 페이지 — 제거 대상(이미 SETUP-000에서 정리되었다면 확인만)"
+        }
+      ],
+      "implementationGuide": "1) src/app/invoice/[id]/page.tsx 작성(Server Component). 2) params.id로 fetchInvoicePage/fetchInvoiceItems + parse 함수를 직접 호출(또는 내부 fetch로 /api/invoice/[id] 호출). 3) NotFoundError 발생 시 next/navigation의 notFound() 호출. 4) generateMetadata로 title=견적서번호, description=클라이언트명 설정. 5) 헤더/푸터 없는 단독 레이아웃(layout.tsx 분리 또는 기존 레이아웃에서 헤더 제외 처리). 6) InvoiceViewer + PdfDownloadButton 렌더링.",
+      "verificationCriteria": "Playwright MCP로 유효한 Notion 페이지 ID 접근 시 견적서 전체가 렌더링되고 PDF 버튼이 동작함을 확인. 존재하지 않는 ID 접근 시 Next.js 404 페이지로 전환됨.",
+      "analysisResult": "Invoce 프로젝트를 PRD v2(노션 단일 데이터베이스, 인증 없는 단순 MVP) 기준의 새 ROADMAP.md(docs/ROADMAP.md)에 맞춰 재구성한다. Phase 0~1(셋업/파싱 엔진)에 이어, Phase 2(견적서 조회 페이지·PDF 다운로드)와 Phase 3(통합 테스트·배포)을 정의한다. /invoice/[id] 경로에서 Notion 페이지 ID로 견적서를 공개 조회하고 window.print() 기반 PDF 다운로드를 제공하며, 인증·DB 없이 Vercel에 배포 가능한 상태를 목표로 한다.",
+      "summary": "src/app/invoice/[id]/page.tsx를 Server Component로 완전 구현. React.cache()로 getInvoice() 헬퍼 정의해 generateMetadata와 InvoicePage 간 Notion API 중복 호출 방지. isValidInvoiceId() 형식 검증 → notFound(), NotFoundError → notFound(), 기타 → throw. generateMetadata로 견적서 번호·클라이언트명 메타데이터 설정. 헤더/푸터 없는 단독 레이아웃(max-w-3xl, bg-slate-50), InvoiceViewer + PdfDownloadButton 렌더링. Playwright MCP로 실제 Notion 데이터 렌더링, 404 전환, 모바일 반응형 모두 검증 완료.",
+      "completedAt": "2026-06-17T15:52:42.139Z"
+    },
+    {
+      "id": "28fd3e4a-ad8f-4fc8-9685-0123ef5db247",
+      "name": "INVOICE-005: 404 에러 페이지 구현",
+      "description": "/invoice/[id] 경로에서 존재하지 않는 견적서 ID 접근 시 표시되는 친절한 404 안내 페이지를 작성한다.",
+      "notes": "INVOICE-004의 notFound() 호출과 연결되어 자동으로 렌더링됨을 확인할 것.",
+      "status": "completed",
+      "dependencies": [],
+      "createdAt": "2026-06-14T14:12:20.867Z",
+      "updatedAt": "2026-06-17T15:48:13.331Z",
+      "relatedFiles": [
+        {
+          "path": "src/app/invoice/[id]/not-found.tsx",
+          "type": "CREATE",
+          "description": "404 안내 페이지"
+        }
+      ],
+      "implementationGuide": "src/app/invoice/[id]/not-found.tsx 작성. '견적서를 찾을 수 없습니다' 제목과 '발행자에게 올바른 링크를 요청해주세요' 안내 문구, 홈으로 이동 등 최소한의 액션 버튼(선택) 포함. shadcn/ui 컴포넌트로 중앙 정렬 레이아웃 구성.",
+      "verificationCriteria": "존재하지 않는 ID로 /invoice/[id] 접근 시 해당 404 페이지가 표시됨.",
+      "analysisResult": "Invoce 프로젝트를 PRD v2(노션 단일 데이터베이스, 인증 없는 단순 MVP) 기준의 새 ROADMAP.md(docs/ROADMAP.md)에 맞춰 재구성한다. Phase 0~1(셋업/파싱 엔진)에 이어, Phase 2(견적서 조회 페이지·PDF 다운로드)와 Phase 3(통합 테스트·배포)을 정의한다. /invoice/[id] 경로에서 Notion 페이지 ID로 견적서를 공개 조회하고 window.print() 기반 PDF 다운로드를 제공하며, 인증·DB 없이 Vercel에 배포 가능한 상태를 목표로 한다.",
+      "summary": "not-found.tsx 구현 완료. 견적서를 찾을 수 없습니다 안내, 해결 방법 3단계 가이드, FileX2 아이콘. 잘못된 ID 접근 시 표시 Playwright 확인.",
+      "completedAt": "2026-06-17T15:48:13.329Z"
+    },
+    {
+      "id": "f23db1d9-9ae6-40bd-a11c-2f259ac05143",
+      "name": "OPT-001: 구조화 로거 및 Rate Limiter 공통 모듈 구현",
+      "description": "src/lib/logger.ts와 src/lib/rate-limit.ts 두 개의 공통 유틸리티를 구현한다.",
+      "status": "completed",
+      "dependencies": [],
+      "createdAt": "2026-06-17T16:02:56.013Z",
+      "updatedAt": "2026-06-17T16:03:37.316Z",
+      "relatedFiles": [
+        {
+          "path": "src/lib/logger.ts",
+          "type": "CREATE",
+          "description": "구조화 JSON 로거"
+        },
+        {
+          "path": "src/lib/rate-limit.ts",
+          "type": "CREATE",
+          "description": "In-memory Rate Limiter"
+        }
+      ],
+      "implementationGuide": "1) src/lib/logger.ts: LogContext 인터페이스(requestId, path, method, invoiceId, errorCode, durationMs), log() 내부 함수(JSON.stringify로 타임스탬프+레벨+메시지+컨텍스트 출력), logger.info/warn/error 익스포트, extractRequestContext(req: Request): LogContext 헬퍼(x-request-id → x-vercel-id → crypto.randomUUID() 순서로 requestId 결정). 2) src/lib/rate-limit.ts: globalThis에 Map<string, {count,resetAt}> 캐시(핫리로드 대응), checkRateLimit(key: string): {allowed: boolean, remaining: number} 함수(WINDOW_MS=60000, MAX_REQUESTS=10, 윈도우 만료 시 리셋).",
+      "verificationCriteria": "두 파일 모두 tsc --noEmit 에러 없음. logger.error 호출 시 JSON 문자열이 console.error로 출력됨. checkRateLimit를 11회 호출 시 11번째에 allowed=false 반환.",
+      "analysisResult": "invoce-web Next.js 16 App Router 프로젝트에 캐싱(use cache), Rate Limiting(in-memory), 구조화 로깅(JSON logger) 3가지 기능을 추가한다. 또한 비존재 Notion 페이지가 500 대신 404를 반환하지 않는 버그를 수정한다.",
+      "summary": "src/lib/logger.ts: LogContext 인터페이스, log() 내부 함수(JSON.stringify 구조화 출력), logger.info/warn/error, extractRequestContext(x-request-id→x-vercel-id→crypto.randomUUID() 순) 구현 완료. src/lib/rate-limit.ts: globalThis 패턴으로 핫리로드 대응, checkRateLimit(WINDOW_MS=60000, MAX_REQUESTS=10, 윈도우 리셋) 구현 완료. tsc --noEmit 에러 없음.",
+      "completedAt": "2026-06-17T16:03:37.314Z"
+    },
+    {
+      "id": "414e9b88-0e01-405a-9d4b-c2f8ce316aff",
+      "name": "OPT-002: use cache 캐싱 및 NotionError 404 버그 수정",
+      "description": "next.config.ts에 cacheComponents: true를 추가하고, src/lib/notion.ts에 fetchCachedInvoice()를 구현한다. 또한 비존재 Notion 페이지가 NotionError를 던지는 버그를 수정한다.",
+      "status": "completed",
+      "dependencies": [],
+      "createdAt": "2026-06-17T16:02:56.013Z",
+      "updatedAt": "2026-06-17T16:04:27.860Z",
+      "relatedFiles": [
+        {
+          "path": "next.config.ts",
+          "type": "TO_MODIFY",
+          "description": "cacheComponents 플래그 추가"
+        },
+        {
+          "path": "src/lib/notion.ts",
+          "type": "TO_MODIFY",
+          "description": "fetchCachedInvoice 추가 및 버그 수정"
+        }
+      ],
+      "implementationGuide": "1) next.config.ts: cacheComponents: true 추가. 2) src/lib/notion.ts 상단에 'use cache' NOT 추가(함수 레벨로 적용) — fetchCachedInvoice(id: string) 함수를 파일 하단에 추가: 함수 내부 첫 줄에 'use cache', cacheTag(`invoice-${id}`), cacheLife({revalidate:60}) 호출, 이후 getNotionClient → fetchInvoicePage → fetchInvoiceItems → parse → return ParsedInvoice. 3) fetchInvoicePage의 catch 블록에서 APIErrorCode.RestrictedResource도 NotFoundError로 처리(비존재 페이지에 Notion이 restricted_resource 반환하는 케이스 처리). import cacheLife, cacheTag from 'next/cache'.",
+      "verificationCriteria": "tsc --noEmit 에러 없음. /api/invoice/[존재하지않는UUID] 호출 시 404 반환(기존 500 버그 수정). 동일 ID 두 번 호출 시 두 번째는 캐시에서 응답(Notion API 미호출).",
+      "analysisResult": "invoce-web Next.js 16 App Router 프로젝트에 캐싱(use cache), Rate Limiting(in-memory), 구조화 로깅(JSON logger) 3가지 기능을 추가한다. 또한 비존재 Notion 페이지가 500 대신 404를 반환하지 않는 버그를 수정한다.",
+      "summary": "next.config.ts에 cacheComponents:true 추가. notion.ts에 fetchCachedInvoice() 구현('use cache', cacheTag, cacheLife({revalidate:60})). fetchInvoicePage catch 블록에 RestrictedResource 처리 추가로 비존재 Notion 페이지 500→404 버그 수정. tsc --noEmit 에러 없음.",
+      "completedAt": "2026-06-17T16:04:27.858Z"
+    },
+    {
+      "id": "641a55d4-c2fb-4e15-8a3b-c0d8c1a5487d",
+      "name": "OPT-003: API Route에 Rate Limit + 로거 적용 및 페이지 캐시 연동",
+      "description": "API Route와 Server Component 페이지에 앞서 만든 유틸리티를 연결한다.",
+      "status": "completed",
+      "dependencies": [
+        {
+          "taskId": "f23db1d9-9ae6-40bd-a11c-2f259ac05143"
+        },
+        {
+          "taskId": "414e9b88-0e01-405a-9d4b-c2f8ce316aff"
+        }
+      ],
+      "createdAt": "2026-06-17T16:02:56.013Z",
+      "updatedAt": "2026-06-17T16:09:28.678Z",
+      "relatedFiles": [
+        {
+          "path": "src/app/api/invoice/[id]/route.ts",
+          "type": "TO_MODIFY",
+          "description": "Rate Limit + 로거 + fetchCachedInvoice 적용"
+        },
+        {
+          "path": "src/app/invoice/[id]/page.tsx",
+          "type": "TO_MODIFY",
+          "description": "fetchCachedInvoice 연동"
+        }
+      ],
+      "implementationGuide": "1) src/app/api/invoice/[id]/route.ts: import logger, extractRequestContext, checkRateLimit. GET 함수 시작에 startedAt=Date.now(), ctx=extractRequestContext(req,{invoiceId:id}), ip=x-forwarded-for헤더?.split(',')[0]?.trim()??'anonymous', checkRateLimit(ip) → allowed=false면 logger.warn + 429 반환. 기존 fetchInvoicePage+fetchInvoiceItems+parse 로직을 fetchCachedInvoice(id) 단일 호출로 교체. 성공 시 logger.info, NotionError 시 logger.error+500, 기타 logger.error+500. 2) src/app/invoice/[id]/page.tsx: getInvoice 내부에서 직접 fetch 대신 fetchCachedInvoice(id) 호출로 교체(React.cache 래퍼는 유지).",
+      "verificationCriteria": "분당 11회 요청 시 429 반환. 서버 로그에 JSON 구조 출력 확인. 페이지도 캐시에서 데이터 로드. tsc --noEmit 에러 없음.",
+      "analysisResult": "invoce-web Next.js 16 App Router 프로젝트에 캐싱(use cache), Rate Limiting(in-memory), 구조화 로깅(JSON logger) 3가지 기능을 추가한다. 또한 비존재 Notion 페이지가 500 대신 404를 반환하지 않는 버그를 수정한다.",
+      "summary": "route.ts: checkRateLimit(ip) → 429 RATE_LIMIT_EXCEEDED(Retry-After 헤더 포함), fetchCachedInvoice 단일 호출로 교체, logger.info/error 구조화 JSON 출력. page.tsx: fetchCachedInvoice 연동. 'use cache' 경계 에러 직렬화 문제를 err.name 비교로 해결. 404 버그(비존재 UUID 500→404) 수정 완료. Rate Limit 11회 요청 시 10회 초과부터 429 반환 확인. 유효한 invoice API 200+데이터 확인. tsc 에러 없음, vitest 12개 통과.",
+      "completedAt": "2026-06-17T16:09:28.675Z"
+    }
+  ]
+}
