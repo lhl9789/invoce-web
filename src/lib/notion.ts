@@ -1,4 +1,4 @@
-import { Client, APIErrorCode, APIResponseError, isFullPage } from "@notionhq/client"
+import { Client, APIErrorCode, APIResponseError, isFullPage, type PageObjectResponse } from "@notionhq/client"
 import { NotFoundError, NotionError } from "./errors"
 import {
   INVOICE_PROPERTY_NAMES,
@@ -172,6 +172,52 @@ export async function fetchCachedInvoice(id: string): Promise<ParsedInvoice> {
 
   invoiceCache.set(id, { data, expiresAt: now + CACHE_TTL_MS })
   return data
+}
+
+/** Notion 견적서 DB 목록 조회 — search API 사용, DB parent 기준 필터링, 발행일 내림차순 */
+export async function fetchInvoiceList(client: Client): Promise<ParsedInvoice[]> {
+  const databaseId = process.env.NOTION_DATABASE_ID
+  if (!databaseId) {
+    throw new NotionError("NOTION_DATABASE_ID 환경변수가 설정되지 않았습니다.")
+  }
+
+  // databases.query()는 v5에서 제거됨 — search()로 전체 페이지 조회 후 DB parent 필터링
+  try {
+    const allPages: PageObjectResponse[] = []
+    let cursor: string | null | undefined = undefined
+    let hasMore = true
+
+    while (hasMore && allPages.length < 100) {
+      const response = await client.search({
+        filter: { property: "object", value: "page" },
+        sort: { timestamp: "last_edited_time", direction: "descending" },
+        page_size: 100,
+        ...(cursor ? { start_cursor: cursor } : {}),
+      })
+
+      // 지정된 DB의 자식 페이지만 추출
+      const dbPages = response.results.filter((result): result is PageObjectResponse => {
+        if (!isFullPage(result)) return false
+        const parent = result.parent
+        return (
+          parent.type === "database_id" &&
+          // 하이픈 정규화 후 비교 (Notion ID는 하이픈 있는/없는 형태가 혼재할 수 있음)
+          parent.database_id.replace(/-/g, "") === databaseId.replace(/-/g, "")
+        )
+      })
+
+      allPages.push(...dbPages)
+      hasMore = response.has_more
+      cursor = response.next_cursor
+    }
+
+    return allPages
+      .slice(0, 100)
+      .map((page) => parseInvoiceProperties(page as NotionInvoicePage))
+  } catch (err) {
+    if (err instanceof NotionError) throw err
+    throw new NotionError("견적서 목록을 가져오는 중 오류가 발생했습니다.")
+  }
 }
 
 /** Notion 견적 항목(Items DB) 페이지 목록 → ParsedInvoiceItem[] 변환 */
