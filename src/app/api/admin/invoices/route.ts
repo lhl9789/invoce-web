@@ -2,7 +2,6 @@ import { NextResponse } from "next/server"
 import { verifySession } from "@/lib/auth"
 import { getNotionClient, fetchInvoiceList } from "@/lib/notion"
 import { success, error } from "@/lib/api-response"
-import { NotionError } from "@/lib/errors"
 
 export async function GET() {
   // 세션 검증 — 미인증 시 401 반환
