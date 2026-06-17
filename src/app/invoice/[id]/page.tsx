@@ -4,6 +4,7 @@ import type { Metadata } from "next"
 import { FileText } from "lucide-react"
 import { InvoiceViewer } from "@/components/invoice/InvoiceViewer"
 import { PdfDownloadButton } from "@/components/invoice/PdfDownloadButton"
+import { ThemeToggle } from "@/components/ui/theme-toggle"
 import { fetchCachedInvoice } from "@/lib/notion"
 import { isValidInvoiceId } from "@/lib/validations/invoice"
 import type { ParsedInvoice } from "@/types/invoice"
@@ -79,7 +80,10 @@ export default async function InvoicePage({ params }: InvoicePageProps) {
               {invoice.clientName} 귀중
             </p>
           </div>
-          <PdfDownloadButton invoiceTitle={invoiceTitle} />
+          <div className="flex items-center gap-1 shrink-0">
+            <ThemeToggle />
+            <PdfDownloadButton invoiceTitle={invoiceTitle} />
+          </div>
         </div>
       </div>
 
