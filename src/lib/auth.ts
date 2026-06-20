@@ -26,18 +26,18 @@ function getSessionSecret(): Uint8Array {
 }
 
 /** Edge-safe: 토큰 문자열만 받아 JWT 검증 */
-export async function verifySessionToken(token: string): Promise<{ email: string } | null> {
+export async function verifySessionToken(token: string): Promise<{ admin: true } | null> {
   try {
     const { payload } = await jwtVerify(token, getSessionSecret())
-    if (typeof payload.email !== "string") return null
-    return { email: payload.email }
+    if (payload.admin !== true) return null
+    return { admin: true }
   } catch {
     return null
   }
 }
 
 /** Route Handler용: next/headers cookies에서 세션 토큰 읽어 검증 */
-export async function verifySession(): Promise<{ email: string } | null> {
+export async function verifySession(): Promise<{ admin: true } | null> {
   const cookieStore = await cookies()
   const token = cookieStore.get(SESSION_COOKIE_NAME)?.value
   if (!token) return null
@@ -45,8 +45,8 @@ export async function verifySession(): Promise<{ email: string } | null> {
 }
 
 /** JWT 생성 후 쿠키 옵션 반환 — Route Handler에서 response.cookies.set()에 전달 */
-export async function createSession(email: string): Promise<SessionCookieOptions> {
-  const token = await new SignJWT({ email })
+export async function createSession(): Promise<SessionCookieOptions> {
+  const token = await new SignJWT({ admin: true })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("24h")
@@ -76,17 +76,12 @@ export function deleteSession(): SessionCookieOptions {
 }
 
 /** 관리자 자격증명 검증 */
-export async function validateAdminCredentials(email: string, password: string): Promise<boolean> {
-  const adminEmail = process.env.ADMIN_EMAIL
+export async function validateAdminCredentials(password: string): Promise<boolean> {
   const adminPasswordHash = process.env.ADMIN_PASSWORD_HASH
 
-  if (!adminEmail || !adminPasswordHash) {
-    throw new Error(
-      "관리자 자격증명 환경변수(ADMIN_EMAIL, ADMIN_PASSWORD_HASH)가 설정되지 않았습니다.",
-    )
+  if (!adminPasswordHash) {
+    throw new Error("관리자 자격증명 환경변수(ADMIN_PASSWORD_HASH)가 설정되지 않았습니다.")
   }
-
-  if (email !== adminEmail) return false
 
   return bcrypt.compare(password, adminPasswordHash)
 }

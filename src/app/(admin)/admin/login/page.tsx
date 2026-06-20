@@ -11,7 +11,6 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
 const loginSchema = z.object({
-  email: z.string().email("유효한 이메일 주소를 입력해주세요."),
   password: z.string().min(1, "비밀번호를 입력해주세요."),
 })
 
@@ -72,20 +71,6 @@ export default function AdminLoginPage() {
 
         {/* 폼 */}
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="email">이메일</Label>
-            <Input
-              id="email"
-              type="email"
-              autoComplete="email"
-              placeholder="admin@example.com"
-              {...register("email")}
-            />
-            {errors.email && (
-              <p className="text-xs text-destructive">{errors.email.message}</p>
-            )}
-          </div>
-
           <div className="space-y-1.5">
             <Label htmlFor="password">비밀번호</Label>
             <Input
