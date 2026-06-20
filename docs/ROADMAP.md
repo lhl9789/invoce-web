@@ -49,32 +49,32 @@ src/
 │   │   ├── page.tsx                   # 공개 견적서 조회 페이지 ✅
 │   │   └── not-found.tsx              # 404 안내 페이지 ✅
 │   │
-│   ├── (admin)/                       # 관리자 라우트 그룹 [Phase 4 신규]
-│   │   ├── layout.tsx                 # 관리자 레이아웃 (AdminHeader)
+│   ├── (admin)/                       # 관리자 라우트 그룹 ✅
+│   │   ├── layout.tsx                 # 관리자 레이아웃 (AdminHeader) ✅
 │   │   └── admin/
-│   │       ├── login/page.tsx         # 로그인 페이지
-│   │       └── invoices/page.tsx      # 견적서 목록 페이지
+│   │       ├── login/page.tsx         # 로그인 페이지 ✅
+│   │       └── invoices/page.tsx      # 견적서 목록 페이지 ✅
 │   │
 │   └── api/
 │       ├── invoice/[id]/route.ts      # 견적서 단건 조회 ✅
 │       └── admin/
-│           ├── login/route.ts         # 로그인 처리 [Phase 4 신규]
-│           ├── logout/route.ts        # 로그아웃 처리 [Phase 4 신규]
-│           └── invoices/route.ts      # 견적서 목록 조회 [Phase 4 신규]
+│           ├── login/route.ts         # 로그인 처리 ✅
+│           ├── logout/route.ts        # 로그아웃 처리 ✅
+│           └── invoices/route.ts      # 견적서 목록 조회 ✅
 │
 ├── components/
 │   ├── invoice/                       # InvoiceViewer, PdfDownloadButton ✅
-│   ├── admin/                         # AdminHeader, InvoiceListCard [Phase 4 신규]
+│   ├── admin/                         # AdminHeader, InvoiceListCard ✅
 │   ├── ui/
-│   │   └── theme-toggle.tsx           # 다크모드 토글 버튼 [Phase 5 신규]
+│   │   └── theme-toggle.tsx           # 다크모드 토글 버튼 ✅
 │   └── providers/                     # ThemeProvider, QueryProvider ✅
 │
 ├── lib/
-│   ├── notion.ts                      # fetchCachedInvoice + fetchInvoiceList [fetchInvoiceList 신규]
-│   ├── auth.ts                        # JWT 세션 관리 [Phase 4 신규]
+│   ├── notion.ts                      # fetchCachedInvoice + fetchInvoiceList ✅
+│   ├── auth.ts                        # JWT 세션 관리 ✅
 │   └── (기존: errors, api-response, logger, rate-limit, utils, validations) ✅
 │
-└── middleware.ts                      # /admin/* 라우트 보호 [Phase 4 신규]
+└── proxy.ts                           # /admin/* 라우트 보호 ✅ (Next.js 16: middleware.ts → proxy.ts로 이름 변경)
 ```
 
 ---
@@ -87,6 +87,15 @@ src/
 - [x] **Phase 1**: Notion 데이터 파싱 엔진 (타입 정의, 파싱 함수, 유닛 테스트)
 - [x] **Phase 2**: 공개 견적서 조회·PDF 다운로드 (`/invoice/[id]`, API Route, 404 페이지)
 - [x] **Phase 3**: E2E 검증, 보안 점검, 프로덕션 빌드 성공
+
+---
+
+## Phase 4·5 완료 현황
+
+- [x] **Phase 4**: 관리자 인증(JWT 쿠키), Notion 견적서 목록 API, 로그인·목록 페이지, `/admin/*` 라우트 보호
+  - AUTH-001~003, ADMIN-001~007 전체 완료 (2026-06-18, 커밋 `ec5fa56`)
+  - 구현 편차: `ADMIN-001`은 Notion SDK v5에서 `databases.query()`가 제거되어 `client.search()` 기반으로 구현. `AUTH-003`은 Next.js 16에서 `middleware.ts`가 `proxy.ts`로 명명 변경되어 `src/proxy.ts`로 구현
+- [x] **Phase 5**: 다크모드 토글 컴포넌트 및 관리자·공개 페이지 통합 완료 (커밋 `dab1c5b`)
 
 ---
 
@@ -110,7 +119,7 @@ src/
 
 ### 4-1. 인증 기반 구성
 
-#### AUTH-001 — 환경변수 확장
+#### AUTH-001 — 환경변수 확장 ✅
 - 담당 레이어: 인프라
 - 예상 공수: 0.25일
 - 상세:
@@ -120,7 +129,7 @@ src/
     - `SESSION_SECRET` — JWT 서명 키 (최소 32자 랜덤 문자열)
   - README 또는 설정 안내에 `ADMIN_PASSWORD_HASH` 생성 방법 추가 (`node -e "require('bcryptjs').hash('pw', 10).then(console.log)"`)
 
-#### AUTH-002 — `src/lib/auth.ts` 구현
+#### AUTH-002 — `src/lib/auth.ts` 구현 ✅
 - 담당 레이어: 라이브러리
 - 예상 공수: 0.5일
 - 의존성: AUTH-001
@@ -130,7 +139,7 @@ src/
   - `deleteSession(): Promise<void>` — 세션 쿠키 삭제 (만료 시간 과거로 설정)
   - `validateAdminCredentials(email, password): Promise<boolean>` — 환경변수 `ADMIN_EMAIL`/`ADMIN_PASSWORD_HASH`와 비교
 
-#### AUTH-003 — `src/middleware.ts` 구현
+#### AUTH-003 — `src/middleware.ts` 구현 ✅ (실제 파일명: `src/proxy.ts` — Next.js 16에서 `middleware.ts`가 deprecated되어 `proxy.ts`로 명명 변경됨)
 - 담당 레이어: 미들웨어
 - 예상 공수: 0.25일
 - 의존성: AUTH-002
@@ -144,7 +153,7 @@ src/
 
 ### 4-2. Notion 견적서 목록 API
 
-#### ADMIN-001 — `fetchInvoiceList()` 구현 (`src/lib/notion.ts` 확장)
+#### ADMIN-001 — `fetchInvoiceList()` 구현 (`src/lib/notion.ts` 확장) ✅ (Notion SDK v5에서 `databases.query()` 제거되어 `client.search()` 기반으로 구현)
 - 담당 레이어: 라이브러리
 - 예상 공수: 0.5일
 - 의존성: (없음 — 기존 `getNotionClient()` 재사용)
@@ -155,7 +164,7 @@ src/
   - `items`는 빈 배열 (`[]`) — 목록에서는 항목 상세 불필요
   - 결과 페이지네이션: `start_cursor` 처리 (MVP: 최대 100건)
 
-#### ADMIN-002 — `GET /api/admin/invoices` Route Handler
+#### ADMIN-002 — `GET /api/admin/invoices` Route Handler ✅
 - 담당 레이어: API Route
 - 예상 공수: 0.5일
 - 의존성: AUTH-002, ADMIN-001
@@ -166,7 +175,7 @@ src/
   - 응답: `ApiResponse<ParsedInvoice[]>` (기존 `success()`/`error()` 헬퍼 재사용)
   - `NotionError` → 500, 기타 → 500
 
-#### ADMIN-003 — `POST /api/admin/login` Route Handler
+#### ADMIN-003 — `POST /api/admin/login` Route Handler ✅
 - 담당 레이어: API Route
 - 예상 공수: 0.25일
 - 의존성: AUTH-002
@@ -177,7 +186,7 @@ src/
   - 성공: `createSession()` 후 200 + `{ success: true }`
   - 실패: 401 + `{ success: false, error: { code: 'INVALID_CREDENTIALS', message: '...' } }`
 
-#### ADMIN-004 — `POST /api/admin/logout` Route Handler
+#### ADMIN-004 — `POST /api/admin/logout` Route Handler ✅
 - 담당 레이어: API Route
 - 예상 공수: 0.1일
 - 의존성: AUTH-002
@@ -189,7 +198,7 @@ src/
 
 ### 4-3. 관리자 UI 구성
 
-#### ADMIN-005 — `(admin)/layout.tsx` + `AdminHeader` 컴포넌트
+#### ADMIN-005 — `(admin)/layout.tsx` + `AdminHeader` 컴포넌트 ✅
 - 담당 레이어: Frontend
 - 예상 공수: 0.5일
 - 의존성: AUTH-002
@@ -202,7 +211,7 @@ src/
     - 다크모드 토글 (Phase 5 DARK-001 완료 후 통합)
   - 공개 견적서 레이아웃(`/invoice/[id]`)과 완전 분리
 
-#### ADMIN-006 — `/admin/login` 페이지
+#### ADMIN-006 — `/admin/login` 페이지 ✅
 - 담당 레이어: Frontend
 - 예상 공수: 0.75일
 - 의존성: ADMIN-003, ADMIN-005
@@ -215,7 +224,7 @@ src/
   - 성공 시 `/admin/invoices`로 `router.push()`
   - 인증 상태면 미들웨어가 자동 리디렉션 처리
 
-#### ADMIN-007 — `/admin/invoices` 페이지 (견적서 목록)
+#### ADMIN-007 — `/admin/invoices` 페이지 (견적서 목록) ✅
 - 담당 레이어: Frontend
 - 예상 공수: 1일
 - 의존성: ADMIN-002, ADMIN-005
@@ -248,7 +257,7 @@ src/
 
 ---
 
-#### DARK-001 — `ThemeToggle` 컴포넌트
+#### DARK-001 — `ThemeToggle` 컴포넌트 ✅
 - 담당 레이어: Frontend
 - 예상 공수: 0.25일
 - 상세:
@@ -259,7 +268,7 @@ src/
   - `shadcn/ui Button` (variant="ghost", size="icon") 활용
   - `suppressHydrationWarning` 또는 `mounted` 상태로 hydration 불일치 방지
 
-#### DARK-002 — AdminHeader에 ThemeToggle 통합
+#### DARK-002 — AdminHeader에 ThemeToggle 통합 ✅
 - 담당 레이어: Frontend
 - 예상 공수: 0.1일
 - 의존성: DARK-001, ADMIN-005
@@ -267,7 +276,7 @@ src/
   - `src/components/admin/AdminHeader.tsx` 우측에 `<ThemeToggle />` 배치
   - 로그아웃 버튼 옆 위치
 
-#### DARK-003 — 공개 견적서 페이지 액션바에 ThemeToggle 통합
+#### DARK-003 — 공개 견적서 페이지 액션바에 ThemeToggle 통합 ✅
 - 담당 레이어: Frontend
 - 예상 공수: 0.25일
 - 의존성: DARK-001
@@ -279,16 +288,16 @@ src/
 
 ## 우선순위 매트릭스
 
-| 우선순위 | 태스크 ID | 기능명 | Phase |
-|---------|----------|--------|-------|
-| P0 | AUTH-001~003 | 관리자 인증 기반 | 4 |
-| P0 | ADMIN-001~004 | Notion 목록 API | 4 |
-| P0 | ADMIN-005 | 관리자 레이아웃 | 4 |
-| P1 | ADMIN-006 | 로그인 페이지 | 4 |
-| P1 | ADMIN-007 | 견적서 목록 페이지 + 링크 복사 | 4 |
-| P1 | DARK-001 | ThemeToggle 컴포넌트 | 5 |
-| P2 | DARK-002 | AdminHeader 다크모드 | 5 |
-| P2 | DARK-003 | 공개 페이지 다크모드 | 5 |
+| 우선순위 | 태스크 ID | 기능명 | Phase | 상태 |
+|---------|----------|--------|-------|------|
+| P0 | AUTH-001~003 | 관리자 인증 기반 | 4 | ✅ |
+| P0 | ADMIN-001~004 | Notion 목록 API | 4 | ✅ |
+| P0 | ADMIN-005 | 관리자 레이아웃 | 4 | ✅ |
+| P1 | ADMIN-006 | 로그인 페이지 | 4 | ✅ |
+| P1 | ADMIN-007 | 견적서 목록 페이지 + 링크 복사 | 4 | ✅ |
+| P1 | DARK-001 | ThemeToggle 컴포넌트 | 5 | ✅ |
+| P2 | DARK-002 | AdminHeader 다크모드 | 5 | ✅ |
+| P2 | DARK-003 | 공개 페이지 다크모드 | 5 | ✅ |
 
 ---
 
@@ -312,9 +321,9 @@ node -e "require('bcryptjs').hash('your_password', 10).then(console.log)"
 | 메서드 | 경로 | 인증 | 설명 |
 |--------|------|------|------|
 | GET | `/api/invoice/[id]` | 불필요 | 견적서 단건 조회 ✅ |
-| POST | `/api/admin/login` | 불필요 | 관리자 로그인 [신규] |
-| POST | `/api/admin/logout` | 세션 쿠키 | 관리자 로그아웃 [신규] |
-| GET | `/api/admin/invoices` | 세션 쿠키 | 견적서 목록 조회 [신규] |
+| POST | `/api/admin/login` | 불필요 | 관리자 로그인 ✅ |
+| POST | `/api/admin/logout` | 세션 쿠키 | 관리자 로그아웃 ✅ |
+| GET | `/api/admin/invoices` | 세션 쿠키 | 견적서 목록 조회 ✅ |
 
 ---
 
@@ -324,8 +333,8 @@ node -e "require('bcryptjs').hash('your_password', 10).then(console.log)"
 |------|---------|------|
 | `/` | 공개 | 서비스 홈 안내 ✅ |
 | `/invoice/[id]` | 공개 | 견적서 공개 조회 ✅ |
-| `/admin/login` | 비인증 전용 | 관리자 로그인 [신규] |
-| `/admin/invoices` | 인증 필수 | 견적서 목록 + 링크 복사 [신규] |
+| `/admin/login` | 비인증 전용 | 관리자 로그인 ✅ |
+| `/admin/invoices` | 인증 필수 | 견적서 목록 + 링크 복사 ✅ |
 
 ---
 
