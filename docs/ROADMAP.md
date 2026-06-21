@@ -53,14 +53,16 @@ src/
 │   │   ├── layout.tsx                 # 관리자 레이아웃 (AdminHeader) ✅
 │   │   └── admin/
 │   │       ├── login/page.tsx         # 로그인 페이지 ✅
-│   │       └── invoices/page.tsx      # 견적서 목록 페이지 ✅
+│   │       └── invoices/
+│   │           ├── page.tsx           # 견적서 목록 페이지 ✅
+│   │           └── new/page.tsx       # 견적서 작성 페이지 ✅
 │   │
 │   └── api/
 │       ├── invoice/[id]/route.ts      # 견적서 단건 조회 ✅
 │       └── admin/
 │           ├── login/route.ts         # 로그인 처리 ✅
 │           ├── logout/route.ts        # 로그아웃 처리 ✅
-│           └── invoices/route.ts      # 견적서 목록 조회 ✅
+│           └── invoices/route.ts      # 견적서 목록 조회 ✅ + 작성(POST) ✅
 │
 ├── components/
 │   ├── invoice/                       # InvoiceViewer, PdfDownloadButton ✅
@@ -70,7 +72,7 @@ src/
 │   └── providers/                     # ThemeProvider, QueryProvider ✅
 │
 ├── lib/
-│   ├── notion.ts                      # fetchCachedInvoice + fetchInvoiceList ✅
+│   ├── notion.ts                      # fetchCachedInvoice + fetchInvoiceList + createInvoiceItem + createInvoice ✅
 │   ├── auth.ts                        # JWT 세션 관리 ✅
 │   └── (기존: errors, api-response, logger, rate-limit, utils, validations) ✅
 │
@@ -96,6 +98,8 @@ src/
   - AUTH-001~003, ADMIN-001~007 전체 완료 (2026-06-18, 커밋 `ec5fa56`)
   - 구현 편차: `ADMIN-001`은 Notion SDK v5에서 `databases.query()`가 제거되어 `client.search()` 기반으로 구현. `AUTH-003`은 Next.js 16에서 `middleware.ts`가 `proxy.ts`로 명명 변경되어 `src/proxy.ts`로 구현
 - [x] **Phase 5**: 다크모드 토글 컴포넌트 및 관리자·공개 페이지 통합 완료 (커밋 `dab1c5b`)
+- [x] **Phase 6**: 견적서 작성 (F012) — Notion 쓰기 API, 작성 폼, 공유 링크 다이얼로그 완료 (아래 6-1~6-3 상세 참조)
+  - WRITE-001~008 전체 완료. 구현 편차: ROADMAP 초안 작성 시 `ADMIN_EMAIL` 기반 세션을 가정했으나, 실제 인증은 비밀번호 단독(`{ admin: true }`) 단일 세션으로 구현되어 있어 `POST /api/admin/invoices`의 rate limit 키는 이메일 대신 고정 키(`admin-invoices-post`) 사용
 
 ---
 
@@ -286,6 +290,114 @@ src/
 
 ---
 
+## Phase 6: 견적서 작성 (F012)
+
+> 목표: 관리자가 Notion을 직접 열지 않고도 웹 폼으로 견적서를 작성·제출해 Items DB → Invoices DB 순서로 Notion 페이지를 생성하고, 생성된 견적서의 공유 링크를 즉시 받아볼 수 있는 기능 구축
+> PRD 반영: `docs/PRD.md` F012 신규 추가, 정합성 검증 1~4단계에서 "미구현"으로 표시됨
+
+### 아키텍처 결정 사항
+
+| 결정 항목 | 선택 | 근거 |
+|-----------|------|------|
+| 인증 방식 | 기존 관리자 JWT 세션 재사용 (`verifySession()`) | PRD의 "로그인 필수"는 별도 회원가입 없이 Phase 4 admin 세션으로 충족, 신규 인증 불필요 |
+| 진입 라우트 | `/admin/invoices/new` (관리자 라우트 그룹 하위) | 기존 `(admin)` 레이아웃·`proxy.ts` 보호 그대로 재사용 |
+| Items DB 식별 | `NOTION_ITEMS_DATABASE_ID` 환경변수 신규 추가 | Items DB가 Invoices DB와 별도 데이터베이스이므로 기존 `NOTION_DATABASE_ID`(Invoices 전용)와 분리 필요 |
+| 쓰기 순서 | Items DB 페이지 먼저 생성 → 생성된 ID 목록을 Invoices DB 신규 페이지의 "항목" relation에 연결 | PRD "Notion DB 쓰기 구조" 절 명세 그대로 따름 |
+| 폼 상태·검증 | React Hook Form + Zod (이미 설치됨) | 기존 로그인 폼과 동일한 패턴 재사용 |
+| 합계 계산 | 클라이언트에서 수량×단가 실시간 계산, 서버에서 재계산 후 저장 | 클라이언트 값 신뢰하지 않고 서버사이드에서 최종 `총 금액` 확정 |
+| 공유 링크 노출 | 생성된 Invoices 페이지 ID로 기존 `/invoice/{id}` URL 패턴 재사용 + `copyToClipboard()` | F003 인프라 그대로 재사용 |
+
+---
+
+### 6-1. 환경변수 및 검증 스키마
+
+- [x] **WRITE-001** `NOTION_ITEMS_DATABASE_ID` 환경변수 추가
+  - 담당 레이어: 인프라
+  - 예상 공수: 0.1일
+  - 상세:
+    - `.env.example`, `.env.local`에 `NOTION_ITEMS_DATABASE_ID` 추가 (Items DB URL에서 추출한 32자리 ID)
+    - Items DB 우측 상단 `···` → `Add connections`에서 기존 Integration 연결 필요 (안내 주석 추가)
+
+- [x] **WRITE-002** 견적서 작성 폼 검증 스키마 정의
+  - 담당 레이어: 공통
+  - 예상 공수: 0.5일
+  - 의존성: WRITE-001
+  - 상세:
+    - `src/lib/validations/invoice.ts` 확장 — `createInvoiceSchema` (Zod)
+      - `clientName: z.string().min(1)`, `issueDate`/`validUntil: z.string()` (ISO date), `supplierInfo: z.string().optional()`
+      - `items: z.array(z.object({ description: z.string().min(1), quantity: z.number().positive(), unitPrice: z.number().nonnegative() })).min(1)`
+    - 타입: `CreateInvoiceInput` (`src/types/invoice.ts`에 추가)
+
+---
+
+### 6-2. Notion 쓰기 API
+
+- [x] **WRITE-003** `createInvoiceItem()` 구현 (`src/lib/notion.ts` 확장)
+  - 담당 레이어: 라이브러리
+  - 예상 공수: 0.5일
+  - 의존성: WRITE-001
+  - 상세:
+    - `createInvoiceItem(client, item: { description, quantity, unitPrice }): Promise<string>` — Items DB에 페이지 생성, 생성된 page ID 반환
+    - `ITEM_PROPERTY_NAMES` 상수 재사용 (항목명/수량/단가), `금액`은 Formula 속성이므로 쓰기 대상 아님
+    - 실패 시 `NotionError`
+
+- [x] **WRITE-004** `createInvoice()` 구현 (`src/lib/notion.ts` 확장)
+  - 담당 레이어: 라이브러리
+  - 예상 공수: 0.5일
+  - 의존성: WRITE-003
+  - 상세:
+    - `createInvoice(client, data: CreateInvoiceInput, itemPageIds: string[]): Promise<string>` — Invoices DB에 페이지 생성, "항목" relation에 `itemPageIds` 연결, `총 금액`은 항목별 `quantity × unitPrice` 합산 후 서버에서 계산하여 기록, `상태`는 기본값 "대기"로 생성
+    - `INVOICE_PROPERTY_NAMES` 상수 재사용
+    - 생성된 Invoices 페이지 ID 반환 (공유 URL 생성에 사용)
+
+- [x] **WRITE-005** `POST /api/admin/invoices` Route Handler 구현
+  - 담당 레이어: API Route
+  - 예상 공수: 0.75일
+  - 의존성: AUTH-002, WRITE-002, WRITE-004
+  - 상세:
+    - `src/app/api/admin/invoices/route.ts`에 `POST` 핸들러 추가 (기존 `GET`과 동일 파일)
+    - `verifySession()` 실패 시 401
+    - 요청 body `createInvoiceSchema` 검증 실패 시 400
+    - `items`를 순차(또는 `Promise.all`)로 Items DB에 생성 → 생성된 ID 목록으로 `createInvoice()` 호출
+    - 응답: `ApiResponse<{ id: string; shareUrl: string }>` (`${NEXT_PUBLIC_APP_URL}/invoice/{id}`)
+    - Notion API 오류(연결 실패, 속성 누락 등) 시 500 + 입력값 유지 가능하도록 에러 메시지만 반환 (서버는 부분 생성된 Items 페이지를 별도 롤백하지 않음 — MVP 범위 외, 리스크 표에 기재)
+
+---
+
+### 6-3. 견적서 작성 UI
+
+- [x] **WRITE-006** `/admin/invoices/new` 페이지 구현
+  - 담당 레이어: Frontend
+  - 예상 공수: 1.5일
+  - 의존성: WRITE-002, WRITE-005, ADMIN-005
+  - 상세:
+    - `src/app/(admin)/admin/invoices/new/page.tsx` — Client Component
+    - React Hook Form + Zod(`createInvoiceSchema`)로 폼 상태 관리
+    - 공급자 정보·클라이언트명·발행일·유효기간 입력 필드
+    - 견적 항목(품목·수량·단가) `useFieldArray` 기반 동적 추가·삭제 (최소 1개 강제)
+    - 수량×단가 기반 항목별 금액·소계·합계 실시간 계산 (클라이언트 표시용, 최종 값은 서버에서 재계산)
+    - 제출 시 `POST /api/admin/invoices` 호출 (TanStack React Query mutation)
+    - Notion API 오류 시 인라인 에러 메시지 표시, 입력값 유지 (폼 리셋하지 않음)
+
+- [x] **WRITE-007** 제출 성공 피드백 (공유 링크 노출)
+  - 담당 레이어: Frontend
+  - 예상 공수: 0.5일
+  - 의존성: WRITE-006
+  - 상세:
+    - 제출 성공 시 응답의 `shareUrl`을 Dialog 또는 Sonner 토스트로 즉시 노출
+    - **"링크 복사"** 버튼 — 기존 `copyToClipboard()` 재사용 (F003 인프라)
+    - "내 견적서 목록으로 이동" / "계속 작성" 선택 옵션 제공
+
+- [x] **WRITE-008** 네비게이션 진입점 추가
+  - 담당 레이어: Frontend
+  - 예상 공수: 0.25일
+  - 의존성: WRITE-006
+  - 상세:
+    - `src/components/admin/AdminHeader.tsx`에 "견적서 작성" 메뉴 추가 (`/admin/invoices/new` 링크)
+    - `src/app/(admin)/admin/invoices/page.tsx` (목록 페이지)에 "새 견적서" 버튼 추가
+
+---
+
 ## 우선순위 매트릭스
 
 | 우선순위 | 태스크 ID | 기능명 | Phase | 상태 |
@@ -298,6 +410,9 @@ src/
 | P1 | DARK-001 | ThemeToggle 컴포넌트 | 5 | ✅ |
 | P2 | DARK-002 | AdminHeader 다크모드 | 5 | ✅ |
 | P2 | DARK-003 | 공개 페이지 다크모드 | 5 | ✅ |
+| P1 | WRITE-001~002 | 환경변수·검증 스키마 | 6 | ✅ |
+| P1 | WRITE-003~005 | Notion 쓰기 API | 6 | ✅ |
+| P1 | WRITE-006~008 | 견적서 작성 UI | 6 | ✅ |
 
 ---
 
@@ -308,6 +423,7 @@ src/
 | `ADMIN_EMAIL` | 관리자 로그인 이메일 | `admin@example.com` |
 | `ADMIN_PASSWORD_HASH` | bcryptjs 해시된 비밀번호 | `$2b$10$...` |
 | `SESSION_SECRET` | JWT 서명 비밀키 (최소 32자) | `(랜덤 생성 문자열)` |
+| `NOTION_ITEMS_DATABASE_ID` | 견적 항목(Items) 데이터베이스 ID | `xxxxxxxxxxxxx` |
 
 **`ADMIN_PASSWORD_HASH` 생성 방법:**
 ```bash
@@ -324,6 +440,7 @@ node -e "require('bcryptjs').hash('your_password', 10).then(console.log)"
 | POST | `/api/admin/login` | 불필요 | 관리자 로그인 ✅ |
 | POST | `/api/admin/logout` | 세션 쿠키 | 관리자 로그아웃 ✅ |
 | GET | `/api/admin/invoices` | 세션 쿠키 | 견적서 목록 조회 ✅ |
+| POST | `/api/admin/invoices` | 세션 쿠키 | 견적서 작성 (Notion 쓰기) ✅ |
 
 ---
 
@@ -335,6 +452,7 @@ node -e "require('bcryptjs').hash('your_password', 10).then(console.log)"
 | `/invoice/[id]` | 공개 | 견적서 공개 조회 ✅ |
 | `/admin/login` | 비인증 전용 | 관리자 로그인 ✅ |
 | `/admin/invoices` | 인증 필수 | 견적서 목록 + 링크 복사 ✅ |
+| `/admin/invoices/new` | 인증 필수 | 견적서 작성 (F012) ✅ |
 
 ---
 
@@ -355,11 +473,20 @@ node -e "require('bcryptjs').hash('your_password', 10).then(console.log)"
 | 토글 UI | DARK-001 | 0.25일 |
 | 통합 | DARK-002, DARK-003 | 0.35일 |
 
+### Phase 6: 견적서 작성 (예상 3.6일)
+
+| 단계 | 태스크 | 예상 공수 |
+|------|--------|----------|
+| 환경변수·검증 스키마 | WRITE-001, WRITE-002 | 0.6일 |
+| Notion 쓰기 API | WRITE-003, WRITE-004, WRITE-005 | 1.75일 |
+| 견적서 작성 UI | WRITE-006, WRITE-007, WRITE-008 | 2.25일 |
+
 | Phase | 기간 | 주요 산출물 |
 |-------|------|------------|
 | Phase 4: 관리자 기능 | Week 4 (5일) | 로그인·목록·링크 복사 |
 | Phase 5: 다크모드 | Week 4 (0.6일) | 전체 페이지 다크모드 토글 |
-| **합계** | **약 5.6일** | **고도화 완성** |
+| Phase 6: 견적서 작성 | Week 5 (3.6일) | 웹 폼 → Notion 쓰기 → 공유 링크 즉시 발급 |
+| **합계** | **약 9.2일** | **F012 포함 고도화 완성** |
 
 ---
 
@@ -371,6 +498,8 @@ node -e "require('bcryptjs').hash('your_password', 10).then(console.log)"
 | JWT 미들웨어 Edge 환경 호환성 | 중 | `jose`는 Edge-compatible, Node.js API 사용 금지 |
 | `ADMIN_PASSWORD_HASH` 초기 설정 복잡성 | 저 | 환경변수 설정 가이드 문서화 |
 | 다크모드 인쇄 CSS 충돌 | 저 | `@media print`에서 강제 라이트모드 (`color-scheme: light`) |
+| 견적서 작성 중 Items 페이지 생성 후 Invoices 생성 실패 시 부분 데이터 잔존 (Phase 6) | 중 | MVP는 자동 롤백 미구현 — 에러 메시지에 생성된 Items 페이지 존재 가능성 안내, 향후 보상 트랜잭션 또는 정리 배치 고려 |
+| Items DB·Invoices DB 동시 연동 권한 누락 (Phase 6) | 저 | `NOTION_ITEMS_DATABASE_ID` 설정 가이드에 Integration 연결 단계 명시 |
 
 ---
 

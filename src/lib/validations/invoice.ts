@@ -16,3 +16,19 @@ export const invoiceIdSchema = z
 export function isValidInvoiceId(id: string): boolean {
   return invoiceIdSchema.safeParse(id).success
 }
+
+/** 견적서 작성 폼 항목 입력값 검증 스키마 */
+const createInvoiceItemSchema = z.object({
+  description: z.string().min(1, "품목명을 입력해주세요."),
+  quantity: z.number().positive("수량은 0보다 커야 합니다."),
+  unitPrice: z.number().nonnegative("단가는 0 이상이어야 합니다."),
+})
+
+/** 견적서 작성 폼(POST /api/admin/invoices) 요청 body 검증 스키마 */
+export const createInvoiceSchema = z.object({
+  clientName: z.string().min(1, "클라이언트명을 입력해주세요."),
+  issueDate: z.string().min(1, "발행일을 입력해주세요."),
+  validUntil: z.string().min(1, "유효기간을 입력해주세요."),
+  supplierInfo: z.string().optional(),
+  items: z.array(createInvoiceItemSchema).min(1, "최소 1개 항목이 필요합니다."),
+})

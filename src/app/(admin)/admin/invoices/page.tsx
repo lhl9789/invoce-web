@@ -1,7 +1,8 @@
 "use client"
 
+import Link from "next/link"
 import { useQueryClient, useQuery } from "@tanstack/react-query"
-import { RefreshCw, AlertCircle, FileText } from "lucide-react"
+import { RefreshCw, AlertCircle, FileText, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { InvoiceListCard } from "@/components/admin/InvoiceListCard"
@@ -60,16 +61,24 @@ export default function AdminInvoicesPage() {
             Notion 데이터베이스에 연결된 견적서 목록입니다.
           </p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleRefresh}
-          disabled={isFetching}
-          className="gap-1.5"
-        >
-          <RefreshCw className={`size-3.5 ${isFetching ? "animate-spin" : ""}`} />
-          새로고침
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRefresh}
+            disabled={isFetching}
+            className="gap-1.5"
+          >
+            <RefreshCw className={`size-3.5 ${isFetching ? "animate-spin" : ""}`} />
+            새로고침
+          </Button>
+          <Button size="sm" className="gap-1.5" asChild>
+            <Link href="/admin/invoices/new">
+              <Plus className="size-3.5" />
+              새 견적서
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {/* 로딩 상태 */}

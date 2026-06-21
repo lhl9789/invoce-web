@@ -22,4 +22,11 @@ export interface NavItem {
 // 도메인 타입 re-export
 export type { NotionBlock, NotionInvoicePage, NotionItemPage } from "./notion"
 export { INVOICE_PROPERTY_NAMES, ITEM_PROPERTY_NAMES } from "./notion"
-export type { ParsedInvoice, ParsedInvoiceItem, InvoiceStatus } from "./invoice"
+export type {
+  ParsedInvoice,
+  ParsedInvoiceItem,
+  InvoiceStatus,
+  CreateInvoiceInput,
+  CreateInvoiceItemInput,
+  CreateInvoiceResult,
+} from "./invoice"

@@ -6,7 +6,13 @@ import {
   type NotionInvoicePage,
   type NotionItemPage,
 } from "@/types/notion"
-import type { ParsedInvoice, ParsedInvoiceItem, InvoiceStatus } from "@/types/invoice"
+import type {
+  ParsedInvoice,
+  ParsedInvoiceItem,
+  InvoiceStatus,
+  CreateInvoiceInput,
+  CreateInvoiceItemInput,
+} from "@/types/invoice"
 
 // 개발 환경 핫리로드 시 Notion 클라이언트가 중복 생성되는 것을 방지하기 위한 전역 캐시
 const globalForNotion = globalThis as unknown as {
@@ -234,4 +240,81 @@ export function parseInvoiceItems(rawItems: NotionItemPage[]): ParsedInvoiceItem
       amount: getFormulaNumberValue(properties[ITEM_PROPERTY_NAMES.amount]),
     }
   })
+}
+
+/** Items DB에 견적 항목 페이지 1개 생성 후 page ID 반환. "금액"은 Formula 속성이라 쓰기 대상에서 제외 */
+export async function createInvoiceItem(
+  client: Client,
+  item: CreateInvoiceItemInput,
+): Promise<string> {
+  const databaseId = process.env.NOTION_ITEMS_DATABASE_ID
+  if (!databaseId) {
+    throw new NotionError("NOTION_ITEMS_DATABASE_ID 환경변수가 설정되지 않았습니다.")
+  }
+
+  try {
+    const page = await client.pages.create({
+      parent: { database_id: databaseId },
+      properties: {
+        [ITEM_PROPERTY_NAMES.description]: {
+          title: [{ text: { content: item.description } }],
+        },
+        [ITEM_PROPERTY_NAMES.quantity]: { number: item.quantity },
+        [ITEM_PROPERTY_NAMES.unitPrice]: { number: item.unitPrice },
+      },
+    })
+
+    return page.id
+  } catch {
+    throw new NotionError("견적 항목 생성 중 오류가 발생했습니다.")
+  }
+}
+
+/** Invoices DB에 견적서 페이지 1개 생성, "항목" relation에 itemPageIds 연결. 총 금액은 서버에서 재계산하여 기록 */
+export async function createInvoice(
+  client: Client,
+  data: CreateInvoiceInput,
+  itemPageIds: string[],
+): Promise<{ id: string; invoiceNumber: string }> {
+  const databaseId = process.env.NOTION_DATABASE_ID
+  if (!databaseId) {
+    throw new NotionError("NOTION_DATABASE_ID 환경변수가 설정되지 않았습니다.")
+  }
+
+  const totalAmount = data.items.reduce(
+    (sum, item) => sum + item.quantity * item.unitPrice,
+    0,
+  )
+  const invoiceNumber = `INV-${data.issueDate.replace(/-/g, "")}-${Math.random()
+    .toString(36)
+    .slice(2, 6)
+    .toUpperCase()}`
+
+  try {
+    const page = await client.pages.create({
+      parent: { database_id: databaseId },
+      properties: {
+        [INVOICE_PROPERTY_NAMES.invoiceNumber]: {
+          title: [{ text: { content: invoiceNumber } }],
+        },
+        [INVOICE_PROPERTY_NAMES.clientName]: {
+          rich_text: [{ text: { content: data.clientName } }],
+        },
+        [INVOICE_PROPERTY_NAMES.issueDate]: { date: { start: data.issueDate } },
+        [INVOICE_PROPERTY_NAMES.validUntil]: { date: { start: data.validUntil } },
+        [INVOICE_PROPERTY_NAMES.supplierInfo]: {
+          rich_text: [{ text: { content: data.supplierInfo ?? "" } }],
+        },
+        [INVOICE_PROPERTY_NAMES.status]: { status: { name: "대기" } },
+        [INVOICE_PROPERTY_NAMES.totalAmount]: { number: totalAmount },
+        [INVOICE_PROPERTY_NAMES.items]: {
+          relation: itemPageIds.map((id) => ({ id })),
+        },
+      },
+    })
+
+    return { id: page.id, invoiceNumber }
+  } catch {
+    throw new NotionError("견적서 생성 중 오류가 발생했습니다.")
+  }
 }

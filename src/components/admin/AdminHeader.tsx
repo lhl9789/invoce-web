@@ -37,6 +37,12 @@ export function AdminHeader() {
           >
             견적서 목록
           </Link>
+          <Link
+            href="/admin/invoices/new"
+            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            견적서 작성
+          </Link>
         </nav>
 
         {/* 우측 액션 */}

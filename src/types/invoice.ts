@@ -21,3 +21,25 @@ export interface ParsedInvoice {
   supplierInfo: string
   items: ParsedInvoiceItem[]
 }
+
+/** 견적서 작성 폼의 항목 입력값 */
+export interface CreateInvoiceItemInput {
+  description: string
+  quantity: number
+  unitPrice: number
+}
+
+/** 견적서 작성 폼 입력값 (POST /api/admin/invoices 요청 body) */
+export interface CreateInvoiceInput {
+  clientName: string
+  issueDate: string
+  validUntil: string
+  supplierInfo?: string
+  items: CreateInvoiceItemInput[]
+}
+
+/** 견적서 작성 성공 응답 */
+export interface CreateInvoiceResult {
+  id: string
+  shareUrl: string
+}
