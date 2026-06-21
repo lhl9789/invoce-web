@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server"
 import { deleteSession } from "@/lib/auth"
+import { success } from "@/lib/api-response"
 
 export async function POST() {
-  // 세션 쿠키 삭제 후 로그인 페이지로 리디렉션
+  // 세션 쿠키 삭제 — 페이지 이동은 클라이언트(router.push)가 처리
   const cookieOptions = deleteSession()
-  const response = NextResponse.redirect(
-    new URL("/admin/login", process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"),
-  )
+  const response = NextResponse.json(success({ loggedOut: true }))
   response.cookies.set(cookieOptions)
   return response
 }
