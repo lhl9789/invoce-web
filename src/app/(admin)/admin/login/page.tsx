@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
@@ -17,7 +16,6 @@ const loginSchema = z.object({
 type LoginFormValues = z.infer<typeof loginSchema>
 
 export default function AdminLoginPage() {
-  const router = useRouter()
   const [serverError, setServerError] = useState<string | null>(null)
 
   const {
@@ -45,7 +43,9 @@ export default function AdminLoginPage() {
         return
       }
 
-      router.push("/admin/invoices")
+      // 로그인 직후 클라이언트 라우터 전환이 간헐적으로 누락되는 사례가 있어
+      // 항상 전체 페이지 이동으로 확실하게 전환되도록 처리
+      window.location.assign("/admin/invoices")
     } catch {
       setServerError("네트워크 오류가 발생했습니다. 잠시 후 다시 시도해주세요.")
     }
