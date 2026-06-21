@@ -21,7 +21,7 @@ export function AdminHeader() {
 
   return (
     <header className="sticky top-0 z-10 border-b border-border/60 bg-background/95 backdrop-blur-sm">
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 h-14 flex items-center gap-4">
         {/* 로고 */}
         <Link href="/admin/invoices" className="flex items-center gap-1.5 shrink-0">
           <FileText className="size-4 text-muted-foreground" />
@@ -29,8 +29,8 @@ export function AdminHeader() {
           <span className="text-xs text-muted-foreground ml-1">관리자</span>
         </Link>
 
-        {/* 네비게이션 */}
-        <nav className="flex items-center gap-4">
+        {/* 네비게이션 — 좌우 영역 폭이 달라도 항상 중앙에 위치하도록 flex-1로 정렬 */}
+        <nav className="flex-1 flex items-center justify-center gap-6">
           <Link
             href="/admin/invoices"
             className="text-sm text-muted-foreground hover:text-foreground transition-colors"
@@ -46,7 +46,7 @@ export function AdminHeader() {
         </nav>
 
         {/* 우측 액션 */}
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 shrink-0">
           <ThemeToggle />
           <Button
             variant="ghost"
