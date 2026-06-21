@@ -199,11 +199,13 @@ export async function fetchInvoiceList(client: Client): Promise<ParsedInvoice[]>
       const dbPages = response.results.filter((result): result is PageObjectResponse => {
         if (!isFullPage(result)) return false
         const parent = result.parent
-        return (
-          parent.type === "database_id" &&
-          // 하이픈 정규화 후 비교 (Notion ID는 하이픈 있는/없는 형태가 혼재할 수 있음)
-          parent.database_id.replace(/-/g, "") === databaseId.replace(/-/g, "")
-        )
+        // Notion API 2025-09-03+: DB 자식 페이지의 parent.type은 "data_source_id"이며,
+        // database_id는 그 형태 안에 부가 필드로 포함됨 (parent.type === "database_id"는 더 이상 발생하지 않음)
+        if (parent.type !== "database_id" && parent.type !== "data_source_id") return false
+        const parentDatabaseId = "database_id" in parent ? parent.database_id : undefined
+        if (!parentDatabaseId) return false
+        // 하이픈 정규화 후 비교 (Notion ID는 하이픈 있는/없는 형태가 혼재할 수 있음)
+        return parentDatabaseId.replace(/-/g, "") === databaseId.replace(/-/g, "")
       })
 
       allPages.push(...dbPages)
