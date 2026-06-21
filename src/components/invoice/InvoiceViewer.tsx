@@ -45,7 +45,7 @@ export function InvoiceViewer({ invoice }: InvoiceViewerProps) {
   const total = invoice.totalAmount
 
   return (
-    <article className="bg-white rounded-2xl shadow-sm ring-1 ring-black/[0.06] print:shadow-none print:rounded-none print:ring-0">
+    <article className="bg-card rounded-2xl shadow-sm ring-1 ring-border print:shadow-none print:rounded-none print:ring-0">
       {/* 최상위 패딩 래퍼 */}
       <div className="p-8 sm:p-10 md:p-12 print:p-8">
 
@@ -53,7 +53,7 @@ export function InvoiceViewer({ invoice }: InvoiceViewerProps) {
         <header className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
           {/* 좌측: 공급자 정보 */}
           <div className="space-y-1">
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-[0.1em]">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.1em]">
               공급자
             </p>
             {invoice.supplierInfo ? (
@@ -111,11 +111,11 @@ export function InvoiceViewer({ invoice }: InvoiceViewerProps) {
         <section aria-labelledby="client-section-title" className="mb-10">
           <h2
             id="client-section-title"
-            className="text-xs font-semibold text-slate-400 uppercase tracking-[0.1em] mb-4"
+            className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.1em] mb-4"
           >
             수신
           </h2>
-          <div className="bg-slate-50 rounded-lg px-5 py-4 border border-slate-200">
+          <div className="bg-muted rounded-lg px-5 py-4 border border-border">
             <p className="text-base font-semibold text-foreground">
               {invoice.clientName || "—"}{" "}
               <span className="font-normal text-muted-foreground text-sm">
@@ -129,7 +129,7 @@ export function InvoiceViewer({ invoice }: InvoiceViewerProps) {
         <section aria-labelledby="items-section-title" className="mb-10">
           <h2
             id="items-section-title"
-            className="text-xs font-semibold text-slate-400 uppercase tracking-[0.1em] mb-4"
+            className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.1em] mb-4"
           >
             견적 내역
           </h2>
@@ -137,7 +137,7 @@ export function InvoiceViewer({ invoice }: InvoiceViewerProps) {
             <div className="overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow className="bg-slate-100/80 hover:bg-slate-100/80">
+                <TableRow className="bg-muted/80 hover:bg-muted/80">
                   <TableHead className="w-full font-semibold text-foreground pl-6 py-4">
                     품목
                   </TableHead>
@@ -155,7 +155,7 @@ export function InvoiceViewer({ invoice }: InvoiceViewerProps) {
               <TableBody>
                 {invoice.items.length > 0 ? (
                   invoice.items.map((item, index) => (
-                    <TableRow key={index} className="hover:bg-slate-50/50">
+                    <TableRow key={index} className="hover:bg-muted/50">
                       <TableCell className="font-medium pl-6 py-5">
                         {item.description}
                       </TableCell>
@@ -192,7 +192,7 @@ export function InvoiceViewer({ invoice }: InvoiceViewerProps) {
             <h2 id="totals-section-title" className="sr-only">금액 합계</h2>
 
             {/* 소계 · 세금 행 */}
-            <div className="divide-y divide-slate-100 border border-slate-100 rounded-lg overflow-hidden mb-2">
+            <div className="divide-y divide-border border border-border rounded-lg overflow-hidden mb-2">
               <div className="flex items-center justify-between text-sm px-4 py-3">
                 <span className="text-muted-foreground">소계</span>
                 <span className="tabular-nums font-medium">
@@ -208,11 +208,11 @@ export function InvoiceViewer({ invoice }: InvoiceViewerProps) {
             </div>
 
             {/* 총액 강조 박스 */}
-            <div className="bg-slate-900 rounded-lg px-5 py-4 flex items-center justify-between print:bg-white print:border-2 print:border-slate-900">
-              <span className="font-semibold text-base text-white print:text-foreground">
+            <div className="bg-foreground rounded-lg px-5 py-4 flex items-center justify-between print:bg-white print:border-2 print:border-foreground">
+              <span className="font-semibold text-base text-background print:text-foreground">
                 합계
               </span>
-              <span className="text-2xl font-bold tabular-nums text-white print:text-foreground">
+              <span className="text-2xl font-bold tabular-nums text-background print:text-foreground">
                 {formatCurrency(total)}
               </span>
             </div>

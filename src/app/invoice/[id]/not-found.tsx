@@ -3,8 +3,8 @@ import { Separator } from "@/components/ui/separator"
 
 export default function InvoiceNotFound() {
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-      <div className="bg-white rounded-lg shadow-sm max-w-md w-full p-8 sm:p-10 text-center">
+    <div className="min-h-screen bg-muted flex items-center justify-center px-4">
+      <div className="bg-card rounded-lg shadow-sm max-w-md w-full p-8 sm:p-10 text-center">
 
         {/* 아이콘 */}
         <div className="flex justify-center mb-6">

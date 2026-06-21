@@ -59,10 +59,10 @@ export default async function InvoicePage({ params }: InvoicePageProps) {
   const invoiceTitle = `${invoice.invoiceNumber}_${invoice.clientName}_견적서`
 
   return (
-    <div className="min-h-screen bg-slate-50 print:bg-white">
+    <div className="min-h-screen bg-muted print:bg-white">
 
       {/* 상단 액션 바 — 인쇄 시 숨김 */}
-      <div className="print:hidden sticky top-0 z-10 backdrop-blur-sm bg-white/95 border-b border-border/60">
+      <div className="print:hidden sticky top-0 z-10 backdrop-blur-sm bg-background/95 border-b border-border/60">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 py-3.5 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
             <div className="flex items-center gap-1.5 shrink-0">
